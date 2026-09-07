@@ -3,7 +3,7 @@ import { SwitchBotWorld } from './three-world.js';
 
 const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
 const canvas=$('#worldCanvas'); let world;
-try { world=new SwitchBotWorld(canvas); } catch(err){ console.error(err); $('#webglFallback').hidden=false; }
+try { world=new SwitchBotWorld(canvas); window.__switchbotWorld=world; canvas.dataset.webglReady='true'; } catch(err){ console.error(err); $('#webglFallback').hidden=false; }
 
 const experience=$('#experience'), hero=$('#heroCopy'), overlay=$('#sceneOverlay'), bar=$('#progressBar');
 const sceneTime=$('#sceneTime'), sceneEyebrow=$('#sceneEyebrow'), sceneTitle=$('#sceneTitle'), sceneBody=$('#sceneBody');
