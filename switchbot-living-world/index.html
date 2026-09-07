@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0e11" />
+  <meta name="description" content="SwitchBot Living World — 日本の一戸建てを舞台に、暮らしの一日をスクロールで体験する。" />
+  <title>SwitchBot Living World</title>
+  <link rel="preconnect" href="https://www.switchbot.jp" />
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#experience" aria-label="SwitchBot Living World home">
+      <span class="brand-mark">S</span><span>SwitchBot</span>
+    </a>
+    <nav class="mode-nav" aria-label="Page modes">
+      <a href="#experience">体験する</a>
+      <a href="#explore">家を見る</a>
+      <a href="#build" class="pill">わが家のプラン</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="experience">
+      <div class="hero-copy">
+        <p class="kicker">SWITCHBOT LIVING WORLD</p>
+        <h1>暮らしに合わせて、<br/>家が動く。</h1>
+        <p class="hero-sub">日本の一戸建てで過ごす一日を、スクロールで。</p>
+        <div class="hero-actions">
+          <a class="primary" href="#story">1日を体験する</a>
+          <a class="secondary" href="#explore">家の中を見る</a>
+        </div>
+      </div>
+      <div class="hero-house-wrap" aria-hidden="true">
+        <div class="hero-house-glow"></div>
+        <svg class="hero-house" viewBox="0 0 900 620" role="img" aria-label="Japanese two-story smart home illustration">
+          <defs>
+            <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#dbe8f5"/><stop offset="1" stop-color="#b8cddd"/></linearGradient>
+            <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f8f7f2"/><stop offset="1" stop-color="#e3e0d8"/></linearGradient>
+            <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#b67c4e"/><stop offset="1" stop-color="#8f5b39"/></linearGradient>
+            <filter id="shadow"><feDropShadow dx="0" dy="25" stdDeviation="28" flood-opacity=".22"/></filter>
+          </defs>
+          <rect width="900" height="620" rx="42" fill="url(#sky)" opacity=".52"/>
+          <ellipse cx="455" cy="540" rx="330" ry="42" fill="#8196a3" opacity=".16"/>
+          <g filter="url(#shadow)">
+            <polygon points="170,260 455,80 730,250 690,300 430,155 215,300" fill="#30363b"/>
+            <polygon points="220,270 440,145 690,286 690,510 220,510" fill="url(#wall)"/>
+            <rect x="235" y="305" width="438" height="185" fill="#e9e5db"/>
+            <rect x="448" y="175" width="225" height="120" fill="#f3f1eb"/>
+            <rect x="235" y="305" width="201" height="185" fill="#f7f5ef"/>
+            <rect x="459" y="330" width="194" height="160" fill="#f4efe6"/>
+            <rect x="310" y="324" width="92" height="142" rx="2" fill="url(#wood)"/>
+            <circle cx="387" cy="396" r="5" fill="#15181c"/>
+            <rect x="488" y="358" width="135" height="89" fill="#5d7180"/>
+            <rect x="497" y="367" width="117" height="71" fill="#cfe0eb"/>
+            <rect x="500" y="195" width="145" height="72" fill="#728692"/>
+            <rect x="510" y="205" width="125" height="52" fill="#d9e9f1"/>
+            <rect x="510" y="205" width="60" height="52" fill="#c1d6e0"/>
+            <rect x="575" y="205" width="60" height="52" fill="#e9d7ac" opacity=".72"/>
+            <rect x="185" y="286" width="55" height="224" fill="#34393d"/>
+            <rect x="184" y="286" width="56" height="16" fill="#1e2428"/>
+            <rect x="642" y="286" width="84" height="224" fill="#444b4f"/>
+            <rect x="655" y="308" width="38" height="150" fill="#8e684d"/>
+            <rect x="646" y="468" width="72" height="15" fill="#b9976f"/>
+          </g>
+          <g opacity=".8">
+            <circle cx="744" cy="430" r="32" fill="#7fa379"/>
+            <rect x="739" y="454" width="10" height="54" fill="#6f5a3f"/>
+            <circle cx="780" cy="462" r="19" fill="#91aa7d"/>
+          </g>
+        </svg>
+      </div>
+      <div class="scroll-hint"><span></span>SCROLL TO LIVE THE DAY</div>
+    </section>
+
+    <section id="story" class="story-shell">
+      <div class="cinematic-stage" aria-live="polite">
+        <div class="world-bg" data-tone="dawn"></div>
+        <div class="world-grid"></div>
+        <div class="world-house" id="worldHouse" aria-hidden="true">
+          <div class="house-card">
+            <div class="roof"></div>
+            <div class="floor floor-2">
+              <div class="room bedroom"><div class="window"><div class="curtain left"></div><div class="curtain right"></div></div><div class="bed"></div><div class="lamp"></div></div>
+              <div class="room stair"><div class="stairs-lines"></div></div>
+            </div>
+            <div class="floor floor-1">
+              <div class="room entrance"><div class="door"></div><div class="keypad"></div><div class="entry-light"></div></div>
+              <div class="room living"><div class="sofa"></div><div class="tv"></div><div class="living-light"></div><div class="hub"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="scene-copy" id="sceneCopy">
+          <p class="scene-time">07:00 · MORNING</p>
+          <h2>朝、家が先に目を覚ます。</h2>
+          <p>カーテンを開けに行かなくても、光と一緒に一日が始まる。</p>
+          <button class="ghost" id="openSolution">このしくみを見る</button>
+        </div>
+        <div class="scroll-progress" aria-hidden="true"><span id="progressBar"></span></div>
+        <div class="timeline" id="timeline"></div>
+      </div>
+      <div class="story-spacer" aria-hidden="true"></div>
+    </section>
+
+    <section id="explore" class="section light-section">
+      <div class="section-head">
+        <p class="kicker dark">EXPLORE MY HOME</p>
+        <h2>部屋ではなく、<br/>暮らし方から見る。</h2>
+        <p>玄関、リビング、寝室。どこから入っても、最初に見えるのは製品ではなく、その場所で起きる生活の瞬間。</p>
+      </div>
+      <div class="room-grid" id="roomGrid"></div>
+      <div class="explore-panel" id="explorePanel"></div>
+    </section>
+
+    <section id="build" class="section build-section">
+      <div class="section-head compact">
+        <p class="kicker">BUILD MY HOME</p>
+        <h2>わが家なら、<br/>どこから始める？</h2>
+        <p>欲しい暮らしを選ぶと、4つのシーンから優先順位を組み立てます。</p>
+      </div>
+      <div class="builder">
+        <div class="builder-options" id="builderOptions">
+          <button data-goal="ease" class="choice active">もっとラク</button>
+          <button data-goal="comfort" class="choice">もっと快適</button>
+          <button data-goal="security" class="choice">もっと安心</button>
+          <button data-goal="energy" class="choice">もっと省エネ</button>
+        </div>
+        <div class="plan-card" id="planCard"></div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <p class="kicker">SWITCHBOT HOME</p>
+      <h2>家じゅうを変えるんじゃない。<br/>毎日の小さな手間を減らしていく。</h2>
+      <a class="primary inverse" href="#experience">もう一度、1日を見る</a>
+    </section>
+  </main>
+
+  <dialog id="solutionDialog" class="solution-dialog">
+    <button class="dialog-close" aria-label="閉じる">×</button>
+    <div id="dialogContent"></div>
+  </dialog>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
