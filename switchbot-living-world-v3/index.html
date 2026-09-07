@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e12" />
+  <meta name="description" content="SwitchBot Living World — 日本の一戸建てを、スクロールで本当に飛び回る3D体験。" />
+  <title>SwitchBot Living World — 3D</title>
+  <link rel="stylesheet" href="./src/styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#experience" aria-label="SwitchBot Living World"><span class="brand-dot">S</span><span>SwitchBot</span></a>
+    <nav><a href="#experience">体験する</a><a href="#explore">家を見る</a><a class="nav-pill" href="#build">わが家のプラン</a></nav>
+  </header>
+
+  <main>
+    <section id="experience" class="experience">
+      <div class="world-sticky">
+        <canvas id="worldCanvas" aria-label="Interactive 3D Japanese detached house"></canvas>
+        <div class="world-vignette"></div>
+        <div class="hero-copy" id="heroCopy">
+          <p class="eyebrow">SWITCHBOT LIVING WORLD / REAL-TIME 3D</p>
+          <h1>暮らしに合わせて、<br/>家が動く。</h1>
+          <p>日本の一戸建てを、スクロールで本当に飛び回る。</p>
+          <span class="scroll-label">SCROLL TO FLY <i></i></span>
+        </div>
+        <div class="scene-overlay" id="sceneOverlay" aria-live="polite">
+          <p class="scene-time" id="sceneTime">07:00</p>
+          <p class="eyebrow" id="sceneEyebrow">MORNING</p>
+          <h2 id="sceneTitle">朝、家が先に目を覚ます。</h2>
+          <p class="scene-body" id="sceneBody">カーテンを開けに行かなくても、光と一緒に一日が始まる。</p>
+          <button id="solutionButton" class="solution-button">この暮らしをつくる <span>↗</span></button>
+        </div>
+        <div class="timeline" id="timeline">
+          <button data-scene="morning"><b>07:00</b><span>朝</span></button>
+          <button data-scene="leaving"><b>08:30</b><span>外出</span></button>
+          <button data-scene="coming-home"><b>18:30</b><span>帰宅</span></button>
+          <button data-scene="good-night"><b>23:30</b><span>夜</span></button>
+        </div>
+        <div class="progress-track"><span id="progressBar"></span></div>
+      </div>
+      <div class="scroll-space" aria-hidden="true"></div>
+    </section>
+
+    <section id="explore" class="paper-section explore-section">
+      <div class="section-head"><p class="eyebrow dark">EXPLORE MY HOME</p><h2>製品ではなく、<br/>暮らしから探す。</h2><p>同じ一戸建てを、今度は部屋から探索。まず「何をしたいか」を選び、そのあとに必要な製品を見る。</p></div>
+      <div class="room-grid" id="roomGrid"></div>
+    </section>
+
+    <section id="build" class="paper-section build-section">
+      <div class="section-head"><p class="eyebrow dark">BUILD MY HOME</p><h2>わが家なら、<br/>どう組み合わせる？</h2><p>改善したい暮らしを選ぶと、4つのHero Scenarioから最小構成を組み立てます。</p></div>
+      <div class="goal-grid" id="goalGrid">
+        <button data-goal="安心">もっと安心</button><button data-goal="ラク">もっとラク</button><button data-goal="快適">もっと快適</button><button data-goal="省エネ">もっと省エネ</button>
+      </div>
+      <div class="plan-card" id="planCard"><p class="eyebrow dark">YOUR SWITCHBOT HOME</p><h3>暮らしを選んでください。</h3><p>選択した目的に合わせて、Scenario単位で構成を表示します。</p></div>
+    </section>
+
+    <section class="closing"><p class="eyebrow">SWITCHBOT</p><h2>あとは、家に任せよう。</h2><a href="#experience">もう一度、1日を体験する ↑</a></section>
+  </main>
+
+  <dialog id="solutionDialog" class="solution-dialog"><button class="dialog-close" id="dialogClose" aria-label="close">×</button><div id="dialogContent"></div></dialog>
+  <div class="webgl-fallback" id="webglFallback" hidden>このブラウザでは3D表示を利用できません。</div>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
