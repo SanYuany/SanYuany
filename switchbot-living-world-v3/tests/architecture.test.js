@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const world = fs.readFileSync(new URL('../src/three-world.js', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../src/app.js', import.meta.url), 'utf8');
+const styles = fs.readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 
 test('uses a real WebGL canvas and Three.js module', () => {
   assert.match(html, /<canvas[^>]+id="worldCanvas"/);
@@ -15,19 +16,30 @@ test('uses a real WebGL canvas and Three.js module', () => {
 
 test('scroll progress drives exact 3D camera position and target', () => {
   assert.match(app, /setWorldProgress/);
-  assert.match(world, /cameraKeys/);
+  assert.match(world, /cameraKeysDesktop/);
+  assert.match(world, /cameraKeysMobile/);
   assert.match(world, /camera\.position\.copy/);
   assert.match(world, /this\.progress = this\.targetProgress/);
   assert.match(world, /camera\.lookAt/);
 });
 
-test('world includes actual 3D house meshes and four scene state systems', () => {
-  assert.match(world, /createHouse/);
-  assert.match(world, /BoxGeometry/);
+test('Japanese home uses an open-front branded diorama architecture', () => {
+  assert.match(world, /createPitchedRoof/);
+  assert.match(world, /createBalcony/);
+  assert.match(world, /createWoodSlats/);
+  assert.match(world, /createDiningZone/);
+  assert.match(world, /createDioramaBase/);
+});
+
+test('world includes four physical scene state systems', () => {
   assert.match(world, /morningState/);
   assert.match(world, /leavingState/);
   assert.match(world, /comingHomeState/);
   assert.match(world, /nightState/);
+});
+
+test('fallback stays invisible unless WebGL initialization fails', () => {
+  assert.match(styles, /\.webgl-fallback\[hidden\]\{display:none!important\}/);
 });
 
 test('experience is SwitchBot-only and has four C2 hero scenes', () => {
