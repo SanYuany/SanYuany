@@ -1,0 +1,10 @@
+.scene-overlay{max-width:min(580px,48vw)}
+.scene-overlay h2{font-size:clamp(40px,4.05vw,62px);line-height:1.03;text-wrap:balance;letter-spacing:-.055em}
+.scene-body{max-width:450px}
+.world-vignette{background:linear-gradient(90deg,rgba(4,6,9,.72) 0%,rgba(4,6,9,.16) 35%,transparent 58%),linear-gradient(0deg,rgba(4,6,9,.42),transparent 35%)}
+@media(max-width:800px){
+  .scene-overlay{max-width:none;bottom:8vh}
+  .scene-overlay h2{font-size:clamp(34px,9.2vw,46px);line-height:1.02}
+  .scene-body{font-size:14px;line-height:1.65;max-width:340px}
+  .world-vignette{background:linear-gradient(0deg,rgba(4,6,9,.80) 0%,rgba(4,6,9,.20) 48%,transparent 78%)}
+}
