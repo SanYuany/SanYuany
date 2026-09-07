@@ -50,10 +50,14 @@ jobs:
           page.on('pageerror',e=>errors.push(e.message));
           await page.goto('http://127.0.0.1:4173/switchbot-living-world-v3/',{waitUntil:'networkidle'});
           await page.waitForFunction(()=>window.__switchbotWorld?.renderer && document.querySelector('#worldCanvas')?.dataset.webglReady==='true',{timeout:20000});
+          await page.evaluate(()=>{ document.documentElement.style.scrollBehavior='auto'; });
           async function snapshot(){
             return page.evaluate(()=>{
               const w=window.__switchbotWorld;
               return {
+                scrollY:window.scrollY,
+                progress:w.progress,
+                targetProgress:w.targetProgress,
                 camera:w.camera.position.toArray(),
                 curtainL:w.refs.curtainLeft.position.x,
                 curtainR:w.refs.curtainRight.position.x,
@@ -65,8 +69,8 @@ jobs:
             });
           }
           async function go(p){
-            await page.evaluate(p=>{ const e=document.querySelector('#experience'); scrollTo(0,e.offsetTop+p*(e.offsetHeight-innerHeight)); },p);
-            await page.waitForTimeout(1800);
+            await page.evaluate(p=>{ const e=document.querySelector('#experience'); const y=e.offsetTop+p*(e.offsetHeight-innerHeight); window.scrollTo(0,y); },p);
+            await page.waitForTimeout(1400);
             return snapshot();
           }
           const start=await go(.015);
@@ -74,7 +78,10 @@ jobs:
           const leaving=await go(.335);
           const home=await go(.64);
           const night=await go(.97);
+          console.log('V3_STATE_SNAPSHOTS');
+          console.log(JSON.stringify({start,morning,leaving,home,night},null,2));
           const dist=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
+          assert.ok(Math.abs(morning.targetProgress-.18)<.025,'scroll must update 3D target progress');
           assert.ok(dist(start.camera,morning.camera)>3,'camera must fly from overview into bedroom');
           assert.ok(Math.abs(morning.curtainL-start.curtainL)>.45,'Curtain 3 panels must physically open in 3D');
           assert.ok(Math.abs(leaving.door)>.25,'entrance door must physically pivot during leaving');
@@ -83,15 +90,14 @@ jobs:
           assert.notEqual(start.bg,night.bg,'time of day must change 3D environment');
           assert.equal(errors.length,0,`browser console errors: ${errors.join(' | ')}`);
           console.log('REAL_3D_QA_PASS');
-          console.log(JSON.stringify({start,morning,leaving,home,night},null,2));
-          await page.evaluate(()=>{ const e=document.querySelector('#experience'); scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight)); });
-          await page.waitForTimeout(1600);
+          await page.evaluate(()=>{ const e=document.querySelector('#experience'); window.scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight)); });
+          await page.waitForTimeout(1400);
           await page.screenshot({path:'switchbot-v3-desktop.png',fullPage:false});
           const mobile=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
           await mobile.goto('http://127.0.0.1:4173/switchbot-living-world-v3/',{waitUntil:'networkidle'});
           await mobile.waitForFunction(()=>window.__switchbotWorld?.renderer,{timeout:20000});
-          await mobile.evaluate(()=>{ const e=document.querySelector('#experience'); scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight)); });
-          await mobile.waitForTimeout(1600);
+          await mobile.evaluate(()=>{ document.documentElement.style.scrollBehavior='auto'; const e=document.querySelector('#experience'); window.scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight)); });
+          await mobile.waitForTimeout(1400);
           await mobile.screenshot({path:'switchbot-v3-mobile.png',fullPage:false});
           await browser.close();
           JS
