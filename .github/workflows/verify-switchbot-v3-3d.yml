@@ -64,7 +64,8 @@ jobs:
                 door:w.refs.doorPivot.rotation.y,
                 entry:w.refs.entryLight.light.intensity,
                 living:w.refs.livingLight.light.intensity,
-                bg:'#'+w.scene.background.getHexString()
+                skyTop:'#'+w.refs.skyUniforms.top.value.getHexString(),
+                skyBottom:'#'+w.refs.skyUniforms.bottom.value.getHexString()
               };
             });
           }
@@ -87,7 +88,8 @@ jobs:
           assert.ok(Math.abs(leaving.door)>.25,'entrance door must physically pivot during leaving');
           assert.ok(home.living>2 && home.entry>2,'coming-home scene must turn real 3D point lights on');
           assert.ok(night.living<home.living*.2,'good-night scene must dim the house');
-          assert.notEqual(start.bg,night.bg,'time of day must change 3D environment');
+          assert.notEqual(start.skyTop,night.skyTop,'time of day must change 3D sky');
+          assert.notEqual(start.skyBottom,night.skyBottom,'time of day must change 3D horizon');
           assert.equal(errors.length,0,`browser console errors: ${errors.join(' | ')}`);
           console.log('REAL_3D_QA_PASS');
 
