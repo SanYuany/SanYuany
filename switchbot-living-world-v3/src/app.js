@@ -2,8 +2,22 @@ import { scenes, rooms } from './data.js';
 import { SwitchBotWorld } from './three-world.js';
 
 const $=s=>document.querySelector(s); const $$=s=>[...document.querySelectorAll(s)];
+const directorLink=document.createElement('link'); directorLink.rel='stylesheet'; directorLink.href='./src/director.css'; document.head.appendChild(directorLink);
+
+function tuneBrandCamera(world){
+  const tune=(keys,updates)=>keys.map(key=>updates[key.p]?{...key,...updates[key.p]}:key);
+  world.cameraKeysDesktop=tune(world.cameraKeysDesktop,{
+    0.62:{pos:[12.6,5.0,13.5],target:[0.5,1.65,-0.25]},
+    0.73:{pos:[8.2,3.45,8.6],target:[-1.7,1.35,-.55]}
+  });
+  world.cameraKeysMobile=tune(world.cameraKeysMobile,{
+    0.62:{pos:[16.0,6.2,17.0],target:[0.5,1.7,-.2]},
+    0.73:{pos:[12.0,4.8,12.5],target:[-1.4,1.45,-.45]}
+  });
+}
+
 const canvas=$('#worldCanvas'); let world;
-try { world=new SwitchBotWorld(canvas); window.__switchbotWorld=world; canvas.dataset.webglReady='true'; } catch(err){ console.error(err); $('#webglFallback').hidden=false; }
+try { world=new SwitchBotWorld(canvas); tuneBrandCamera(world); window.__switchbotWorld=world; canvas.dataset.webglReady='true'; } catch(err){ console.error(err); $('#webglFallback').hidden=false; }
 
 const experience=$('#experience'), hero=$('#heroCopy'), overlay=$('#sceneOverlay'), bar=$('#progressBar');
 const sceneTime=$('#sceneTime'), sceneEyebrow=$('#sceneEyebrow'), sceneTitle=$('#sceneTitle'), sceneBody=$('#sceneBody');
