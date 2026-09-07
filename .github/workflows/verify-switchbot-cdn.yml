@@ -1,0 +1,33 @@
+name: Verify SwitchBot Living World CDN
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-switchbot-cdn.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify raw.githack development URL
+        run: |
+          url='https://raw.githack.com/SanYuany/SanYuany/main/switchbot-living-world/index.html'
+          body="$(curl -fsSL --max-time 20 "$url")"
+          printf '%s' "$body" | grep -q 'SwitchBot Living World'
+          printf '%s' "$body" | grep -q 'id="experience"'
+          echo "LIVE_URL=$url"
+          echo "Verification passed"
+
+      - name: Verify CSS and JS assets
+        run: |
+          base='https://raw.githack.com/SanYuany/SanYuany/main/switchbot-living-world'
+          curl -fsSL --max-time 20 "$base/src/styles.css" | grep -q '.cinematic-stage'
+          curl -fsSL --max-time 20 "$base/src/app.js" | grep -q 'applyScene'
+          curl -fsSL --max-time 20 "$base/src/data.js" | grep -q 'coming-home'
+          echo 'Asset verification passed'
