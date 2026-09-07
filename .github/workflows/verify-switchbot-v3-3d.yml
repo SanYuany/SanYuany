@@ -70,7 +70,7 @@ jobs:
           }
           async function go(p){
             await page.evaluate(p=>{ const e=document.querySelector('#experience'); const y=e.offsetTop+p*(e.offsetHeight-innerHeight); window.scrollTo(0,y); },p);
-            await page.waitForTimeout(1400);
+            await page.waitForTimeout(700);
             return snapshot();
           }
           const start=await go(.015);
@@ -90,24 +90,32 @@ jobs:
           assert.notEqual(start.bg,night.bg,'time of day must change 3D environment');
           assert.equal(errors.length,0,`browser console errors: ${errors.join(' | ')}`);
           console.log('REAL_3D_QA_PASS');
+
           await page.evaluate(()=>{ const e=document.querySelector('#experience'); window.scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight)); });
-          await page.waitForTimeout(1400);
+          await page.waitForTimeout(500);
           await page.screenshot({path:'switchbot-v3-desktop.png',fullPage:false});
-          const mobile=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
-          await mobile.goto('http://127.0.0.1:4173/switchbot-living-world-v3/',{waitUntil:'networkidle'});
-          await mobile.waitForFunction(()=>window.__switchbotWorld?.renderer,{timeout:20000});
-          await mobile.evaluate(()=>{ document.documentElement.style.scrollBehavior='auto'; const e=document.querySelector('#experience'); window.scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight)); });
-          await mobile.waitForTimeout(1400);
-          await mobile.screenshot({path:'switchbot-v3-mobile.png',fullPage:false});
+
+          await page.setViewportSize({width:390,height:844});
+          await page.evaluate(()=>{
+            document.documentElement.style.scrollBehavior='auto';
+            window.dispatchEvent(new Event('resize'));
+            const e=document.querySelector('#experience');
+            window.scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight));
+          });
+          await page.waitForTimeout(600);
+          assert.ok(await page.evaluate(()=>Boolean(window.__switchbotWorld?.renderer)),'WebGL world must stay alive after mobile viewport resize');
+          await page.screenshot({path:'switchbot-v3-mobile.png',fullPage:false});
           await browser.close();
           JS
           node qa.mjs
 
       - name: Upload WebGL QA screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: switchbot-v3-webgl-qa
           path: |
             switchbot-v3-desktop.png
             switchbot-v3-mobile.png
+          if-no-files-found: warn
           retention-days: 7
