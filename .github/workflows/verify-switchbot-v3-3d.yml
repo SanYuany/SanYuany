@@ -1,0 +1,80 @@
+name: Verify SwitchBot Living World V3 Real 3D
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'switchbot-living-world-v3/**'
+      - '.github/workflows/verify-switchbot-v3-3d.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-3d:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Static architecture tests
+        working-directory: switchbot-living-world-v3
+        run: |
+          npm test
+          npm run check
+
+      - name: Install browser QA runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start local static server
+        run: |
+          python3 -m http.server 4173 > /tmp/switchbot-v3-server.log 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:4173/switchbot-living-world-v3/ | grep -q 'REAL-TIME 3D'
+
+      - name: Real Chromium WebGL and scroll-state QA
+        run: |
+          cat > /tmp/qa.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import assert from 'node:assert/strict';
+          const browser = await chromium.launch({headless:true,args:['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
+          const page = await browser.newPage({viewport:{width:1440,height:1000}, deviceScaleFactor:1});
+          const errors=[]; page.on('console',m=>{ if(m.type()==='error') errors.push(m.text()); }); page.on('pageerror',e=>errors.push(e.message));
+          await page.goto('http://127.0.0.1:4173/switchbot-living-world-v3/',{waitUntil:'networkidle'});
+          await page.waitForFunction(()=>window.__switchbotWorld?.renderer && document.querySelector('#worldCanvas')?.dataset.webglReady==='true',{timeout:20000});
+          async function snapshot(){ return page.evaluate(()=>{ const w=window.__switchbotWorld; return { camera:w.camera.position.toArray(), curtainL:w.refs.curtainLeft.position.x, curtainR:w.refs.curtainRight.position.x, door:w.refs.doorPivot.rotation.y, entry:w.refs.entryLight.light.intensity, living:w.refs.livingLight.light.intensity, bg:'#'+w.scene.background.getHexString() }; }); }
+          async function go(p){ await page.evaluate(p=>{ const e=document.querySelector('#experience'); const y=e.offsetTop+p*(e.offsetHeight-innerHeight); scrollTo(0,y); },p); await page.waitForTimeout(1700); return snapshot(); }
+          const start=await go(.015); const morning=await go(.18); const leaving=await go(.335); const home=await go(.64); const night=await go(.91);
+          const dist=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
+          assert.ok(dist(start.camera,morning.camera)>3,'camera must fly from overview into bedroom');
+          assert.ok(Math.abs(morning.curtainL-start.curtainL)>.45,'Curtain 3 panels must physically open in 3D');
+          assert.ok(Math.abs(leaving.door)>.25,'entrance door must physically pivot during leaving');
+          assert.ok(home.living>2 && home.entry>2,'coming-home scene must turn real 3D point lights on');
+          assert.ok(night.living<home.living*.35,'good-night scene must dim the house');
+          assert.notEqual(start.bg,night.bg,'time of day must change 3D environment');
+          assert.equal(errors.length,0,`browser console errors: ${errors.join(' | ')}`);
+          console.log(JSON.stringify({start,morning,leaving,home,night},null,2));
+          await page.screenshot({path:'switchbot-v3-desktop.png',fullPage:false});
+          const mobile=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+          await mobile.goto('http://127.0.0.1:4173/switchbot-living-world-v3/',{waitUntil:'networkidle'});
+          await mobile.waitForFunction(()=>window.__switchbotWorld?.renderer,{timeout:20000});
+          await mobile.evaluate(()=>{ const e=document.querySelector('#experience'); scrollTo(0,e.offsetTop+.64*(e.offsetHeight-innerHeight)); });
+          await mobile.waitForTimeout(1700); await mobile.screenshot({path:'switchbot-v3-mobile.png',fullPage:false});
+          await browser.close();
+          JS
+          node /tmp/qa.mjs
+
+      - name: Upload WebGL QA screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v3-webgl-qa
+          path: |
+            switchbot-v3-desktop.png
+            switchbot-v3-mobile.png
+          retention-days: 7
