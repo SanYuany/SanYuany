@@ -19,7 +19,7 @@ test('scroll progress drives exact 3D camera position and target', () => {
   assert.match(world, /cameraKeysDesktop/);
   assert.match(world, /cameraKeysMobile/);
   assert.match(world, /camera\.position\.copy/);
-  assert.match(world, /this\.progress = this\.targetProgress/);
+  assert.match(world, /this\.progress\s*=\s*this\.targetProgress/);
   assert.match(world, /camera\.lookAt/);
 });
 
