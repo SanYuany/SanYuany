@@ -36,6 +36,8 @@ export class SwitchBotWorld {
       {p:0.83, pos:[5.4,5.2,5.1], target:[2.7,4.0,-2.6]},
       {p:1.00, pos:[15.5,10.2,20.2], target:[0,2.8,0]}
     ];
+    this.camera.position.set(...this.cameraKeys[0].pos);
+    this._lookTarget=new THREE.Vector3(...this.cameraKeys[0].target); this.camera.lookAt(this._lookTarget);
     this.resize();
     window.addEventListener('resize',()=>this.resize(),{passive:true});
     this.animate();
@@ -74,7 +76,7 @@ export class SwitchBotWorld {
 
     this.box('floor1',[12,.22,8],[0,.05,0],floor,root);
     this.box('floor2',[12,.22,8],[0,3.08,0],floor,root);
-    this.box('roof',[12.8,.28,8.8],[0,6.35,0],dark,root).material.transparent=true;
+    this.box('roof',[12.8,.28,8.8],[0,6.35,0],dark.clone(),root).material.transparent=true;
     this.refs.roof=root.getObjectByName('roof'); this.refs.roof.material.opacity=.88;
     this.box('back1',[12,3,0.18],[0,1.55,-4],wall,root);
     this.box('left1',[.18,3,8],[-6,1.55,0],wall2,root);
@@ -187,7 +189,7 @@ export class SwitchBotWorld {
     const ease=1-Math.pow(.0008,delta);
     this.progress += (this.targetProgress-this.progress)*ease;
     const frame=this.keyframe(this.progress);
-    this.camera.position.lerpVectors(this.camera.position,frame.pos,.16);
+    const currentPos=this.camera.position.clone(); this.camera.position.lerpVectors(currentPos,frame.pos,.16);
     const look=this._lookTarget||(this._lookTarget=new THREE.Vector3()); look.lerp(frame.target,.16); this.camera.lookAt(look);
     this.applyStates(this.progress);
     this.renderer.render(this.scene,this.camera);
