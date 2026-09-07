@@ -13,10 +13,11 @@ test('uses a real WebGL canvas and Three.js module', () => {
   assert.match(world, /THREE\.PerspectiveCamera/);
 });
 
-test('scroll progress drives 3D camera position and target', () => {
+test('scroll progress drives exact 3D camera position and target', () => {
   assert.match(app, /setWorldProgress/);
   assert.match(world, /cameraKeys/);
-  assert.match(world, /camera\.position\.lerpVectors/);
+  assert.match(world, /camera\.position\.copy/);
+  assert.match(world, /this\.progress = this\.targetProgress/);
   assert.match(world, /camera\.lookAt/);
 });
 
