@@ -1,9 +1,0 @@
-import fs from 'node:fs';
-const edit=(file,from,to)=>{let s=fs.readFileSync(file,'utf8');if(s.includes(to))return;if(!s.includes(from))throw Error(`Unexpected source in ${file}`);fs.writeFileSync(file,s.replace(from,to));};
-let t=fs.readFileSync('src/timeline.js','utf8');if(!t.includes('export function playbackAt'))fs.appendFileSync('src/timeline.js','\n/** Wall-clock playback remains correct on dropped frames. */\nexport function playbackAt(start,startTime,now,duration=46000){return clamp(start+Math.max(0,now-startTime)/duration);}\n');
-edit('src/app.js',"import {chapters,chapterAt,clamp} from './timeline.js';","import {chapters,chapterAt,clamp,playbackAt} from './timeline.js';");
-edit('src/app.js',"playing=false,lastPlayTime=0,playRaf=0","playing=false,lastPlayTime=0,playStartProgress=0,playRaf=0");
-edit('src/app.js',"function playTick(t){if(!playing)return;const dt=lastPlayTime?Math.min(.1,(t-lastPlayTime)/1000):0;lastPlayTime=t;const p=clamp(getProgress()+dt/46);seek(p);if(p>=1)stopPlay();else playRaf=requestAnimationFrame(playTick);}","function playTick(t){if(!playing)return;const p=playbackAt(playStartProgress,lastPlayTime,t);seek(p);if(p>=1)stopPlay();else playRaf=requestAnimationFrame(playTick);}");
-edit('src/app.js',"playing=true;lastPlayTime=0;","playing=true;lastPlayTime=performance.now();playStartProgress=getProgress();");
-let s=fs.readFileSync('tests/domain.test.js','utf8');if(!s.includes('autoplay follows elapsed time'))fs.appendFileSync('tests/domain.test.js',"\ntest('autoplay follows elapsed time even when rendering skips frames',()=>{assert.equal(typeof timeline.playbackAt,'function');assert.equal(timeline.playbackAt(0,1000,24000),.5);assert.equal(timeline.playbackAt(.4,1000,24000),.9);assert.equal(timeline.playbackAt(.4,1000,80000),1);});\n");
-console.log('Playback clock and regression test updated.');

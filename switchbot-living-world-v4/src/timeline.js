@@ -58,3 +58,6 @@ export const roomViews={
  bedroom:{position:[5.3,6.9,7.85],target:[2.1,4.3,-.6]},
  outside:{position:[13.5,6.0,15],target:[2.5,1,2.2]}
 };
+
+/** Wall-clock playback remains correct on dropped frames. */
+export function playbackAt(start,startTime,now,duration=46000){return clamp(start+Math.max(0,now-startTime)/duration);}

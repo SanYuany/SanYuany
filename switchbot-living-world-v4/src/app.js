@@ -1,10 +1,10 @@
 import {scenes,rooms,goals,productCatalog} from './data.js';
-import {chapters,chapterAt,clamp} from './timeline.js';
+import {chapters,chapterAt,clamp,playbackAt} from './timeline.js';
 import {buildPlan,encodePlan,decodePlan} from './planner.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const experience=$('#experience'),stage=$('#stage'),canvas=$('#worldCanvas'),dialog=$('#solutionDialog');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let world,mode='story',activeChapter=-2,progress=0,playing=false,lastPlayTime=0,playRaf=0,storyPosition=0,currentRoom='all',toastTimer;
+let world,mode='story',activeChapter=-2,progress=0,playing=false,lastPlayTime=0,playStartProgress=0,playRaf=0,storyPosition=0,currentRoom='all',toastTimer;
 const storageKey='switchbot-living-world-plan-v4';
 const safe=text=>String(text).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,3500);}
@@ -22,8 +22,8 @@ function onScroll(){if(mode!=='story')return;const p=getProgress();if(world)worl
 addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onScroll,{passive:true});
 function seek(p,immediate=false){const y=experience.offsetTop+clamp(p)*(experience.offsetHeight-stage.clientHeight);scrollTo({top:y,behavior:'instant'});if(world)world.setProgress(p,immediate);updateCopy(p);}
 function stopPlay(){playing=false;cancelAnimationFrame(playRaf);$('#playToggle').textContent='▶';$('#playToggle').setAttribute('aria-pressed','false');$('#playToggle').setAttribute('aria-label','一日の自動再生');}
-function playTick(t){if(!playing)return;const dt=lastPlayTime?Math.min(.1,(t-lastPlayTime)/1000):0;lastPlayTime=t;const p=clamp(getProgress()+dt/46);seek(p);if(p>=1)stopPlay();else playRaf=requestAnimationFrame(playTick);}
-function startPlay(){if(mode==='explore')setMode('story');if(reduced){goScene(scenes[(Math.max(-1,activeChapter)+1)%scenes.length].id);toast('動きを減らす設定に合わせて、場面ごとに移動します。');return;}if(getProgress()>.985)seek(0,true);playing=true;lastPlayTime=0;$('#playToggle').textContent='Ⅱ';$('#playToggle').setAttribute('aria-pressed','true');$('#playToggle').setAttribute('aria-label','一日の再生を停止');playRaf=requestAnimationFrame(playTick);}
+function playTick(t){if(!playing)return;const p=playbackAt(playStartProgress,lastPlayTime,t);seek(p);if(p>=1)stopPlay();else playRaf=requestAnimationFrame(playTick);}
+function startPlay(){if(mode==='explore')setMode('story');if(reduced){goScene(scenes[(Math.max(-1,activeChapter)+1)%scenes.length].id);toast('動きを減らす設定に合わせて、場面ごとに移動します。');return;}if(getProgress()>.985)seek(0,true);playing=true;lastPlayTime=performance.now();playStartProgress=getProgress();$('#playToggle').textContent='Ⅱ';$('#playToggle').setAttribute('aria-pressed','true');$('#playToggle').setAttribute('aria-label','一日の再生を停止');playRaf=requestAnimationFrame(playTick);}
 $('#startExperience').addEventListener('click',startPlay);$('#playToggle').addEventListener('click',()=>playing?stopPlay():startPlay());
 addEventListener('wheel',()=>{if(playing)stopPlay();},{passive:true});addEventListener('touchstart',e=>{if(playing&&!e.target.closest('#stageControls'))stopPlay();},{passive:true});
 canvas.addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();playing?stopPlay():startPlay();}if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();goScene(scenes[clamp(activeChapter+(e.key==='ArrowRight'?1:-1),0,3)].id);}});

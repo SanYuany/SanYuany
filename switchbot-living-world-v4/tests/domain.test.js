@@ -54,3 +54,5 @@ test('planner clamps counts and rejects unrecognized scenes',()=>{
 });
 
 test('coming-home hero sightline clears the front-centre post on both layouts',()=>{for(const mobile of [false,true]){const c=timeline.getCamera(.71,mobile),t=(c.position[2]-3.5)/(c.position[2]-c.target[2]);const x=c.position[0]+(c.target[0]-c.position[0])*t;assert.ok(Math.abs(x-.05)>.25,'Centre sightline must not meet the timber post');}});
+
+test('autoplay follows elapsed time even when rendering skips frames',()=>{assert.equal(typeof timeline.playbackAt,'function');assert.equal(timeline.playbackAt(0,1000,24000),.5);assert.equal(timeline.playbackAt(.4,1000,24000),.9);assert.equal(timeline.playbackAt(.4,1000,80000),1);});
