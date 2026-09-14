@@ -6,43 +6,43 @@ TAP version 13
 # Subtest: story computes physical states, not only labels
 ok 1 - story computes physical states, not only labels
   ---
-  duration_ms: 2.010814
+  duration_ms: 2.836994
   type: 'test'
   ...
 # Subtest: return animation is deterministic when scroll reverses
 ok 2 - return animation is deterministic when scroll reverses
   ---
-  duration_ms: 0.891278
+  duration_ms: 0.917856
   type: 'test'
   ...
 # Subtest: return lights follow door opening; never claim automatic door hardware
 ok 3 - return lights follow door opening; never claim automatic door hardware
   ---
-  duration_ms: 0.245506
+  duration_ms: 0.270502
   type: 'test'
   ...
 # Subtest: camera path is finite and continuous across 1000 scrub positions
 ok 4 - camera path is finite and continuous across 1000 scrub positions
   ---
-  duration_ms: 3.709736
+  duration_ms: 3.871137
   type: 'test'
   ...
 # Subtest: split curtains need two motors and owned devices are not added twice
 ok 5 - split curtains need two motors and owned devices are not added twice
   ---
-  duration_ms: 0.512411
+  duration_ms: 0.571402
   type: 'test'
   ...
 # Subtest: hands-free scene requires face keypad; hub shared across scene bundles
 ok 6 - hands-free scene requires face keypad; hub shared across scene bundles
   ---
-  duration_ms: 0.258752
+  duration_ms: 0.221241
   type: 'test'
   ...
 # Subtest: planner clamps counts and rejects unrecognized scenes
 ok 7 - planner clamps counts and rejects unrecognized scenes
   ---
-  duration_ms: 0.252625
+  duration_ms: 0.332238
   type: 'test'
   ...
 1..7
@@ -53,4 +53,4 @@ ok 7 - planner clamps counts and rejects unrecognized scenes
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 72.997111
+# duration_ms 81.7654
