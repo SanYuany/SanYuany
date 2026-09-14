@@ -1,12 +1,13 @@
+if(process.env.SMOKE_ONLY==='1'){await import('./public.mjs');process.exit(0);}
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdirSync,writeFileSync,renameSync,existsSync} from 'node:fs';
 import path from 'node:path';
 const base=process.env.BASE_URL||'http://127.0.0.1:4174';
-const out=path.resolve('evidence');mkdirSync(out,{recursive:true});
+const out=path.resolve(process.env.EVIDENCE_DIR||'evidence');mkdirSync(out,{recursive:true});
 const report={timestamp:new Date().toISOString(),base,checks:[],screenshots:[],errors:[],notes:['Headless Chromium with software WebGL; not real-phone GPU performance.','Video is a recording of the running website, not pre-rendered AI scene media.']};
 const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
-const context=await browser.newContext({viewport:{width:1440,height:960},deviceScaleFactor:1});
+const context=await browser.newContext({viewport:{width:1440,height:960},deviceScaleFactor:1,acceptDownloads:true});
 const page=await context.newPage();page.on('pageerror',e=>report.errors.push(e.message));
 async function check(name,callback){await callback();report.checks.push({name,status:'PASS'});console.log('PASS',name);}
 async function shot(name,p=page){const session=await p.context().newCDPSession(p);const result=await session.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});writeFileSync(path.join(out,name+'.png'),Buffer.from(result.data,'base64'));await session.detach();report.screenshots.push(name+'.png');}
@@ -36,8 +37,9 @@ try{
  await page.locator('#planNav').click();await page.waitForTimeout(800);await page.locator('#windowCount').selectOption('2');await page.locator('[data-owned="curtain"]').fill('1');await page.locator('[data-owned="hub"]').fill('1');
  await check('Planner counts split curtains and subtracts owned products',async()=>{const p=await page.evaluate(()=>window.__currentPlan);assert.equal(p.products.find(x=>x.id==='curtain').toBuy,3);assert.equal(p.products.find(x=>x.id==='hub').toBuy,0);assert.equal(p.products.filter(x=>x.id==='hub').length,1);});
  await page.locator('#build').scrollIntoViewIfNeeded();await shot('09-desktop-plan');
- const downloadPromise=page.waitForEvent('download');await page.locator('#exportPlan').click();const download=await downloadPromise;await download.saveAs(path.join(out,'example-consumer-plan.html'));
+ const [download]=await Promise.all([page.waitForEvent('download',{timeout:25000}),page.locator('#exportPlan').click()]);await download.saveAs(path.join(out,'example-consumer-plan.html'));
  await check('Consumer plan really exports a file',()=>assert.ok(existsSync(path.join(out,'example-consumer-plan.html'))));
+ await check('Export does not read pixels from the GPU',async()=>{await page.evaluate(()=>{window.__livingWorld.canvas.toDataURL=()=>{throw new Error('GPU capture must not be used for export');};});const [d]=await Promise.all([page.waitForEvent('download',{timeout:25000}),page.locator('#exportPlan').click()]);await d.saveAs(path.join(out,'export-without-gpu.html'));});
  await page.locator('#homeLink').click();await go(.1);await page.locator('#playToggle').click();await page.waitForTimeout(1600);await page.locator('#playToggle').click();
  await check('Automatic playback advances the journey',async()=>assert.ok((await page.evaluate(()=>window.__livingWorld.progress))>.115));
  await page.setViewportSize({width:390,height:844});await go(0);await shot('10-mobile-overview');await go(.21);await shot('11-mobile-morning');await go(.69);await shot('12-mobile-coming-home');
