@@ -1,0 +1,31 @@
+name: Prepare SwitchBot V4 workspace
+on:
+  push:
+    branches: [switchbot-living-world-v4]
+    paths: ['.github/workflows/switchbot-v4-workspace.yml']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Package existing source and pinned Three.js
+        run: |
+          mkdir -p delivery/vendor/three
+          cp -R switchbot-living-world-v3 delivery/baseline
+          npm pack three@0.185.1 --pack-destination /tmp
+          tar -xzf /tmp/three-0.185.1.tgz -C /tmp
+          cp -R /tmp/package/build delivery/vendor/three/
+          cp -R /tmp/package/examples/jsm delivery/vendor/three/addons
+          cp /tmp/package/LICENSE delivery/vendor/three/LICENSE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v4-workspace
+          path: delivery/
+          retention-days: 7
+          if-no-files-found: error
