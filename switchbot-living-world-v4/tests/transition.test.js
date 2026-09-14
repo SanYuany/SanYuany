@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import * as spatial from '../src/spatial-math.js';
+test('room flight completes by elapsed time even when rendering drops frames',()=>{assert.equal(typeof spatial.transitionAt,'function');assert.equal(spatial.transitionAt(100,100),0);assert.equal(spatial.transitionAt(100,1200),1);assert.equal(spatial.transitionAt(100,10000),1);assert.equal(spatial.transitionAt(100,200,true),1);});
