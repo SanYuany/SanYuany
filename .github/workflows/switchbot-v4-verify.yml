@@ -4,12 +4,15 @@ on:
     branches: [switchbot-living-world-v4]
     paths: ['.github/workflows/switchbot-v4-verify.yml', 'switchbot-living-world-v4/**']
   workflow_dispatch:
+concurrency:
+  group: switchbot-v4-visual-check
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
   visual-verification:
     runs-on: ubuntu-latest
-    timeout-minutes: 16
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -17,48 +20,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Materialize reviewed source when absent
+      - name: Apply reviewed one-time visual corrections
+        working-directory: switchbot-living-world-v4
         run: |
-          if [ ! -f switchbot-living-world-v4/index.html ]; then
-          node --input-type=module <<'JS'
-          import fs from 'node:fs';
-          import path from 'node:path';
-          import {brotliDecompressSync} from 'node:zlib';
-          import {createHash} from 'node:crypto';
-          const encoded=[1,2,3].map(n=>fs.readFileSync(`.delivery/switchbot-v4-source-${n}.b64`,'utf8').trim()).join('');
-          const bytes=Buffer.from(encoded,'base64');
-          if(createHash('sha256').update(bytes).digest('hex')!=='571a919f26d31796c43e79068370ad6e0fddf642848cf11cb21321d62ce038f2')throw Error('Source transfer integrity mismatch');
-          const files=JSON.parse(brotliDecompressSync(bytes).toString('utf8'));
-          const root=path.resolve('switchbot-living-world-v4');
-          for(const [file,contents] of Object.entries(files)){
-            const dest=path.resolve(root,file);if(!dest.startsWith(root+'/'))throw Error('Invalid source path');
-            fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,contents);
-          }
-          JS
-          fi
-          mkdir -p switchbot-living-world-v4/assets switchbot-living-world-v4/evidence
-      - name: Pin and self-host Three.js runtime
-        run: |
-          npm pack three@0.185.1 --pack-destination /tmp
-          mkdir -p /tmp/three-v4
-          tar -xzf /tmp/three-0.185.1.tgz -C /tmp/three-v4
-          V=switchbot-living-world-v4/vendor/three
-          mkdir -p $V/addons/{controls,environments,geometries,utils}
-          cp /tmp/three-v4/package/build/three.{module,core}.min.js $V/
-          cp /tmp/three-v4/package/LICENSE $V/LICENSE
-          for F in controls/OrbitControls environments/RoomEnvironment geometries/RoundedBoxGeometry utils/BufferGeometryUtils; do cp /tmp/three-v4/package/examples/jsm/$F.js $V/addons/$F.js; done
+          mkdir -p assets evidence
+          if [ -f scripts/refine-visuals.mjs ]; then node scripts/refine-visuals.mjs; rm scripts/refine-visuals.mjs; fi
       - name: Functional unit tests and production build
         working-directory: switchbot-living-world-v4
         run: |
+          set -o pipefail
           npm test | tee evidence/unit-tests.txt
           npm run check
           npm run build
-      - name: Preserve modular engineering source on isolated branch
+      - name: Preserve corrected modular source on isolated branch
         run: |
           git config user.name 'SwitchBot Project Build'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add switchbot-living-world-v4
-          if ! git diff --cached --quiet; then git commit -m 'build: materialize tested modular V4 source and local renderer'; git push origin HEAD:switchbot-living-world-v4; fi
+          if ! git diff --cached --quiet; then git commit -m 'fix: apply reviewed V4 camera and lighting corrections'; git push origin HEAD:switchbot-living-world-v4; fi
       - name: Install browser verification runtime
         run: |
           npm install --no-save playwright@1.55.0
@@ -77,7 +56,7 @@ jobs:
       - name: Capture deliverable package
         if: always()
         run: |
-          if [ -d switchbot-living-world-v4 ]; then tar --exclude=node_modules --exclude=__pycache__ -czf /tmp/switchbot-living-world-v4-delivery.tar.gz switchbot-living-world-v4; fi
+          tar --exclude=node_modules --exclude=__pycache__ --exclude=refine-visuals.mjs -czf /tmp/switchbot-living-world-v4-delivery.tar.gz switchbot-living-world-v4
       - name: Upload actual visual evidence
         if: always()
         uses: actions/upload-artifact@v4
