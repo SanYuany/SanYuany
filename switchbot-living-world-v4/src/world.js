@@ -34,7 +34,7 @@ export class LivingWorld {
   const rect=this.canvas.parentElement.getBoundingClientRect();this.mobile=rect.width<760;
   const w=Math.max(1,Math.round(rect.width)),h=Math.max(1,Math.round(rect.height));
   this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,this.mobile?1.25:1.5));this.renderer.setSize(w,h,false);
-  this.camera.aspect=w/h;this.camera.setViewOffset(w,h,this.mobile?0:-w*.135,this.mobile?h*.15:0,w,h);this.camera.updateProjectionMatrix();this.dirty=true;
+  this.camera.aspect=w/h;if(this.spatialComposition)this.camera.clearViewOffset();else this.camera.setViewOffset(w,h,this.mobile?0:-w*.135,this.mobile?h*.15:0,w,h);this.camera.updateProjectionMatrix();this.dirty=true;
  }
  setProgress(p,immediate=false){this.targetProgress=clamp(p);if(immediate||this.reducedMotion)this.progress=this.targetProgress;this.dirty=true;}
  setCamera(frame){this.camera.position.set(...frame.position);this.look.set(...frame.target);this.camera.lookAt(this.look);}
@@ -44,6 +44,7 @@ export class LivingWorld {
  setFloor(value){this.floor=value;this.house.floor1.visible=value!=='2';this.house.floor2.visible=value!=='1';this.dirty=true;this.renderer.shadowMap.needsUpdate=true;}
  setTime(value){this.exploreTime=value==='night'?.94:.68;this.dirty=true;}
  applyState(s){
+ const key=this.mode+'|'+s.p;if(key===this.stateSignature)return;this.stateSignature=key;
   for(const c of this.house.curtains){const scale=1-.81*s.curtain;c.group.scale.x=scale;}
   this.house.door.rotation.y=-s.door*1.27;
   this.house.lockDial.rotation.z=s.locked?0:Math.PI*.5;
@@ -67,7 +68,7 @@ export class LivingWorld {
   }else{
    if(this.roomTransition){const tr=this.roomTransition;tr.t=Math.min(1,tr.t+dt/1.1);const t=this.reducedMotion?1:tr.t*tr.t*(3-2*tr.t);this.camera.position.lerpVectors(tr.from,tr.to,t);this.controls.target.lerpVectors(tr.fromTarget,tr.toTarget,t);this.camera.lookAt(this.controls.target);this.look.copy(this.controls.target);this.dirty=true;if(t>=1)this.roomTransition=null;}
    if(this.dirty)this.applyState(getState(this.exploreTime??.68));
-   this.controls.update();
+   this.controls.update(dt);
   }
   if(this.dirty){this.renderer.render(this.scene,this.camera);this.frames++;this.onFrame(this);this.dirty=false;}
  }

@@ -64,3 +64,5 @@ function failWorld(){stopPlay();$('#loading').hidden=true;$('#fallback').hidden=
 document.addEventListener('world-failed',failWorld);
 window.__app={seek,goScene,setMode,selectRoom,startPlay,stopPlay,readInput,buildPlan,openSolution,renderPlan};
 (async()=>{try{const {LivingWorld}=await import('./world.js');world=new LivingWorld(canvas,{reducedMotion:reduced,onFrame:w=>{if(mode==='story')updateCopy(w.progress);}});window.__livingWorld=world;$('#loading').hidden=true;onScroll();if(shared)goBuild();}catch(err){console.error('3D renderer unavailable',err);failWorld();}})();
+
+import './spatial-view.js';
