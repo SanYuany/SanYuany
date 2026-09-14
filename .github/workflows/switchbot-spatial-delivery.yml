@@ -1,0 +1,147 @@
+name: SwitchBot spatial delivery
+on:
+  push:
+    branches: [switchbot-living-world-v4]
+    paths: ['.github/workflows/switchbot-spatial-delivery.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: switchbot-spatial-delivery
+  cancel-in-progress: false
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: switchbot-living-world-v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply narrow reviewed camera integration
+        working-directory: switchbot-living-world-v4
+        run: |
+          mkdir -p assets spatial-evidence
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const p='src/world.js';let w=fs.readFileSync(p,'utf8');
+          if(!w.includes('spatialComposition'))w=w.replace('this.camera.setViewOffset(w,h,this.mobile?0:-w*.135,this.mobile?h*.15:0,w,h);','if(this.spatialComposition)this.camera.clearViewOffset();else this.camera.setViewOffset(w,h,this.mobile?0:-w*.135,this.mobile?h*.15:0,w,h);');
+          w=w.replace('this.controls.update();','this.controls.update(dt);');
+          if(!w.includes('stateSignature'))w=w.replace('applyState(s){',"applyState(s){\n const key=this.mode+'|'+s.p;if(key===this.stateSignature)return;this.stateSignature=key;");
+          if(!w.includes('spatialComposition')||!w.includes('stateSignature'))throw new Error('Source integration mismatch');fs.writeFileSync(p,w);
+          const a='src/app.js';if(!fs.readFileSync(a,'utf8').includes("import './spatial-view.js'"))fs.appendFileSync(a,"\nimport './spatial-view.js';\n");
+          JS
+          npm test | tee spatial-evidence/unit-tests.txt
+          npm run check
+      - name: Preserve integrated modular source
+        run: |
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add switchbot-living-world-v4/src/world.js switchbot-living-world-v4/src/app.js
+          if ! git diff --cached --quiet; then git commit -m 'fix: integrate direct 3D composition and avoid redundant shadow renders'; git push origin HEAD:switchbot-living-world-v4; fi
+          echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Install rendering and verification runtime
+        run: |
+          npm install --no-save playwright@1.55.0 esbuild@0.25.9 three@0.185.1
+          npx playwright install --with-deps chromium
+          mkdir -p switchbot-living-world-v4/vendor/three/addons/exporters
+          node_modules/.bin/esbuild node_modules/three/examples/jsm/exporters/GLTFExporter.js --bundle --format=esm --external:three --outfile=switchbot-living-world-v4/vendor/three/addons/exporters/GLTFExporter.js
+      - name: Build and start real HTTP preview
+        working-directory: switchbot-living-world-v4
+        env:
+          PORT: '4178'
+        run: |
+          npm run build
+          node scripts/serve.mjs dist > /tmp/sb-spatial-server.log 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:4178/ > /dev/null
+      - name: Verify desktop mobile downloads and actual camera movement
+        working-directory: switchbot-living-world-v4
+        env:
+          BASE_URL: http://127.0.0.1:4178
+          CAPTURE_MEDIA: '1'
+        run: node tests/spatial-browser.mjs
+      - name: Create dynamic preview and portable site
+        working-directory: switchbot-living-world-v4
+        run: |
+          ffmpeg -hide_banner -loglevel error -framerate 12 -i spatial-evidence/frames/%04d.jpg -c:v libx264 -crf 20 -pix_fmt yuv420p -movflags +faststart spatial-evidence/3D-Camera-Journey.mp4
+          node scripts/portable.mjs
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          fs.writeFileSync('spatial-evidence/README.txt','Browser-rendered 3D camera preview, not a device frame-rate benchmark. Same scene supplies the interactive page and cutaway GLB. Product geometry is simplified, not CAD.\n');
+          JS
+          tar --exclude=node_modules --exclude=spatial-evidence/frames -czf /tmp/SwitchBot-Spatial-Delivery.tar.gz .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-spatial-visual-evidence
+          path: |
+            switchbot-living-world-v4/spatial-evidence/*.png
+            switchbot-living-world-v4/spatial-evidence/*.json
+            switchbot-living-world-v4/spatial-evidence/*.txt
+            switchbot-living-world-v4/spatial-evidence/*.html
+            switchbot-living-world-v4/spatial-evidence/*.mp4
+            switchbot-living-world-v4/spatial-evidence/*.glb
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-spatial-source-delivery
+          path: /tmp/SwitchBot-Spatial-Delivery.tar.gz
+          retention-days: 14
+      - name: Generate one-run deployment key
+        run: |
+          mkdir -p /tmp/sb-spatial-key
+          node --input-type=module <<'JS'
+          import {generateKeyPairSync} from 'node:crypto';import fs from 'node:fs';
+          const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:3072});
+          fs.writeFileSync('/tmp/sb-spatial-key/private.pem',privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
+          fs.writeFileSync('/tmp/sb-spatial-key/public.json',JSON.stringify({runId:process.env.GITHUB_RUN_ID,sourceSha:process.env.SOURCE_SHA,publicKey:publicKey.export({type:'spki',format:'pem'}),siteId:'31ad7518-78b8-4219-8463-839dde228c31'}));
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-spatial-deployment-public-key
+          path: /tmp/sb-spatial-key/public.json
+          retention-days: 1
+      - name: Wait for sealed target-specific deployment authorization
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'JS'
+          import {privateDecrypt,constants,createDecipheriv} from 'node:crypto';import fs from 'node:fs';
+          const endpoint=`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/contents/ops/switchbot-spatial-envelope.json?ref=switchbot-living-world-v4`;let payload;
+          for(let i=0;i<90;i++){const r=await fetch(endpoint,{headers:{Authorization:`Bearer ${process.env.GH_TOKEN}`,Accept:'application/vnd.github+json'}});if(r.ok){const f=await r.json(),e=JSON.parse(Buffer.from(f.content,'base64').toString());if(e.runId===process.env.GITHUB_RUN_ID){const key=privateDecrypt({key:fs.readFileSync('/tmp/sb-spatial-key/private.pem'),padding:constants.RSA_PKCS1_OAEP_PADDING,oaepHash:'sha256'},Buffer.from(e.key,'base64'));const d=createDecipheriv('aes-256-gcm',key,Buffer.from(e.iv,'base64'));d.setAuthTag(Buffer.from(e.tag,'base64'));payload=JSON.parse(Buffer.concat([d.update(Buffer.from(e.data,'base64')),d.final()]).toString());break;}}await new Promise(r=>setTimeout(r,10000));}
+          if(!payload||payload.siteId!=='31ad7518-78b8-4219-8463-839dde228c31'||!/^https:\/\/netlify-mcp\.netlify\.app\/proxy\//.test(payload.proxy)||payload.sourceSha!==process.env.SOURCE_SHA)throw new Error('No matching authorized deployment instruction');
+          console.log('::add-mask::'+payload.proxy);console.log('::add-mask::'+payload.proxy.split('/').pop());fs.writeFileSync('/tmp/sb-spatial-key/deploy.json',JSON.stringify(payload),{mode:0o600});fs.unlinkSync('/tmp/sb-spatial-key/private.pem');
+          JS
+      - name: Deploy the verified static files to the existing Netlify site
+        working-directory: switchbot-living-world-v4
+        run: |
+          cp -R dist /tmp/sb-spatial-publish
+          printf '[build]\n  publish = "."\n' > /tmp/sb-spatial-publish/netlify.toml
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';import {spawn} from 'node:child_process';const p=JSON.parse(fs.readFileSync('/tmp/sb-spatial-key/deploy.json'));
+          console.log('::add-mask::'+p.proxy);console.log('::add-mask::'+p.proxy.split('/').pop());
+          const c=spawn('npx',['-y','@netlify/mcp@latest','--site-id',p.siteId,'--proxy-path',p.proxy],{cwd:'/tmp/sb-spatial-publish',stdio:['ignore','pipe','pipe']});let log='';
+          const emit=x=>{const s=x.toString().replaceAll(p.proxy,'[REDACTED]').replaceAll(p.proxy.split('/').pop(),'[REDACTED]');log+=s;process.stdout.write(s);};c.stdout.on('data',emit);c.stderr.on('data',emit);const code=await new Promise((res,rej)=>{c.on('error',rej);c.on('close',res);});fs.writeFileSync('spatial-evidence/deployment.txt',log);fs.unlinkSync('/tmp/sb-spatial-key/deploy.json');if(code!==0)process.exit(code||1);
+          JS
+      - name: Verify the real public 3D page
+        working-directory: switchbot-living-world-v4
+        env:
+          BASE_URL: https://switchbot-living-world.netlify.app
+          EVIDENCE_DIR: public-spatial-evidence
+          CAPTURE_MEDIA: '0'
+        run: node tests/spatial-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-spatial-public-verification
+          path: |
+            switchbot-living-world-v4/public-spatial-evidence
+            switchbot-living-world-v4/spatial-evidence/deployment.txt
+          retention-days: 14
+      - name: Remove ephemeral secrets
+        if: always()
+        run: rm -rf /tmp/sb-spatial-key
