@@ -33,7 +33,7 @@ try{
  await check('Drag changes the 3D camera, not only a CSS transform',async()=>{const after=await page.evaluate(()=>window.__livingWorld.camera.position.toArray());assert.ok(Math.hypot(...after.map((v,i)=>v-beforeOrbit[i]))>.1);});
  await page.locator('[data-room="bedroom"]').click();await page.waitForTimeout(1400);await shot('08-explore-bedroom');
  await check('Second floor hides the first floor',async()=>{const s=await page.evaluate(()=>window.__livingWorld.snapshot());assert.equal(s.visible1,false);assert.equal(s.visible2,true);});
- await page.locator('#planNav').click();await page.waitForTimeout(800);await page.locator('#windowCount').fill('2');await page.locator('[data-owned="curtain"]').fill('1');await page.locator('[data-owned="hub"]').fill('1');
+ await page.locator('#planNav').click();await page.waitForTimeout(800);await page.locator('#windowCount').selectOption('2');await page.locator('[data-owned="curtain"]').fill('1');await page.locator('[data-owned="hub"]').fill('1');
  await check('Planner counts split curtains and subtracts owned products',async()=>{const p=await page.evaluate(()=>window.__currentPlan);assert.equal(p.products.find(x=>x.id==='curtain').toBuy,3);assert.equal(p.products.find(x=>x.id==='hub').toBuy,0);assert.equal(p.products.filter(x=>x.id==='hub').length,1);});
  await page.locator('#build').scrollIntoViewIfNeeded();await shot('09-desktop-plan');
  const downloadPromise=page.waitForEvent('download');await page.locator('#exportPlan').click();const download=await downloadPromise;await download.saveAs(path.join(out,'example-consumer-plan.html'));
@@ -46,9 +46,8 @@ try{
  await page.locator('#exploreNav').click();await page.waitForTimeout(1400);await shot('13-mobile-explore');
  await page.locator('#planNav').click();await page.locator('#build').scrollIntoViewIfNeeded();await page.waitForTimeout(400);await shot('14-mobile-plan');
  await check('No JavaScript page errors',()=>assert.deepEqual(report.errors,[]));
- // Deliberately block the renderer module; the consumer plan must remain usable.
  const fallbackPage=await context.newPage();await fallbackPage.route('**/src/world.js',route=>route.abort());await fallbackPage.goto(base,{waitUntil:'domcontentloaded'});await fallbackPage.waitForSelector('#fallback:not([hidden])');
- await check('No-WebGL fallback keeps the plan functional',async()=>{assert.ok(await fallbackPage.locator('#fallback').isVisible());await fallbackPage.locator('#windowCount').fill('3');assert.ok((await fallbackPage.evaluate(()=>window.__currentPlan.products)).length>0);});await fallbackPage.close();
+ await check('No-WebGL fallback keeps the plan functional',async()=>{assert.ok(await fallbackPage.locator('#fallback').isVisible());await fallbackPage.locator('#windowCount').selectOption('3');assert.ok((await fallbackPage.evaluate(()=>window.__currentPlan.products)).length>0);});await fallbackPage.close();
  const reducedPage=await browser.newPage({viewport:{width:1000,height:760},reducedMotion:'reduce'});await ready(reducedPage);await reducedPage.locator('#startExperience').click();
  await check('Reduced-motion stops autoplay and presents one chapter',async()=>{assert.equal(await reducedPage.locator('#playToggle').getAttribute('aria-pressed'),'false');});await reducedPage.close();
  if(process.env.SKIP_VIDEO!=='1'){
