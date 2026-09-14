@@ -35,7 +35,7 @@ export const cameraKeys=[
  {p:.49,position:[11.9,7.2,15.4],target:[0,2.1,0]},
  {p:.55,position:[6.6,2.4,7.1],target:[4.2,1.35,3.52]},
  {p:.61,position:[5.0,2.08,5.6],target:[3.0,1.4,1.0]},
- {p:.71,position:[.8,2.05,4.85],target:[-2.6,1.02,-.8]},
+ {p:.71,position:[-.8,2.1,5.45],target:[-2.6,1.02,-.8]},
  {p:.765,position:[10.3,7.3,13.2],target:[0,2.5,0]},
  {p:.83,position:[4.9,5.25,7.0],target:[2.0,4.15,-.7]},
  {p:.89,position:[6.4,6.8,8.4],target:[.7,3,0]},

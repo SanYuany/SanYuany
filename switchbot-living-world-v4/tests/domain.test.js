@@ -52,3 +52,5 @@ test('planner clamps counts and rejects unrecognized scenes',()=>{
   assert.deepEqual(a.scenes,['morning']);
   assert.ok(a.products.every(p=>p.toBuy>=0 && p.quantity>=1));
 });
+
+test('coming-home hero sightline clears the front-centre post on both layouts',()=>{for(const mobile of [false,true]){const c=timeline.getCamera(.71,mobile),t=(c.position[2]-3.5)/(c.position[2]-c.target[2]);const x=c.position[0]+(c.target[0]-c.position[0])*t;assert.ok(Math.abs(x-.05)>.25,'Centre sightline must not meet the timber post');}});

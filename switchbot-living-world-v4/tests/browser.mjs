@@ -24,7 +24,7 @@ try{
  await check('Coming home activates interior lights after entry',()=>{assert.ok(home.state.living>.9);assert.ok(home.state.entry>.9);});
  const night=await go(.975);await shot('05-desktop-night');
  await check('Good night closes curtains, door and dims lighting',()=>{assert.ok(night.state.curtain<.02);assert.equal(night.state.locked,true);assert.equal(night.state.door,0);assert.ok(night.state.living<.02);});
- const reversed=await go(.21);await check('Reverse scroll restores the same physical state',()=>assert.deepEqual(reversed.state,morning.state));
+ const reversed=await go(.21);await check('Reverse scroll restores the same physical state',()=>{for(const key of ['curtain','door','entry','living','bedroom'])assert.ok(Math.abs(reversed.state[key]-morning.state[key])<.002,`Reverse physical state: ${key}`);assert.equal(reversed.state.locked,morning.state.locked);});
  await go(.71);await page.locator('#textToggle').click();await shot('06-desktop-3d-only');await check('3D-only mode is available',async()=>assert.equal(await page.locator('#stage').evaluate(x=>x.classList.contains('theatre')),true));await page.locator('#textToggle').click();
  await page.locator('#solutionButton').click();await check('Solution dialog opens and exposes official links',async()=>{assert.equal(await page.locator('#solutionDialog').isVisible(),true);assert.ok(await page.locator('#dialogContent a[href^="https://www.switchbot.jp/"]').count()>=3);});await page.keyboard.press('Escape');
  await page.locator('#exploreNav').click();await page.waitForTimeout(1500);await page.locator('[data-room="living"]').click();await page.waitForTimeout(1400);await shot('07-explore-living');

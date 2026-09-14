@@ -10,7 +10,7 @@ export class LivingWorld {
   this.scene=new T.Scene();this.scene.background=new T.Color('#eee9df');
   this.scene.fog=new T.Fog('#eee9df',38,88);
   this.renderer=new T.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance',alpha:false});
-  this.renderer.outputColorSpace=T.SRGBColorSpace;this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.06;
+  this.renderer.outputColorSpace=T.SRGBColorSpace;this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=.98;
   this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;this.renderer.shadowMap.autoUpdate=false;
   this.camera=new T.PerspectiveCamera(41,1,.08,120);this.look=new T.Vector3();
   const envScene=new RoomEnvironment();const pmrem=new T.PMREMGenerator(this.renderer);this.envTarget=pmrem.fromScene(envScene,.035);this.scene.environment=this.envTarget.texture;this.scene.environmentIntensity=.62;envScene.dispose();pmrem.dispose();
@@ -53,8 +53,8 @@ export class LivingWorld {
   for(const mesh of this.house.roof){mesh.material.transparent=roof<.99;mesh.material.opacity=roof;mesh.castShadow=roof>.9;mesh.material.depthWrite=roof>.9;}
   const day=new T.Color('#ede9df'),evening=new T.Color('#d7ccbf'),night=new T.Color('#27343d');const bg=day.clone().lerp(evening,clamp(s.returning)).lerp(night,s.night);
   this.scene.background.copy(bg);this.scene.fog.color.copy(bg);this.ground.material.color.copy(new T.Color('#e1dacb').lerp(new T.Color('#59605d'),s.night));
-  this.sun.intensity=3.5*(1-s.night)+.55;this.sun.color.set(s.returning>.1?'#ffd6a7':'#fff3de');this.hemi.intensity=1.1*(1-s.night)+.58;this.fill.intensity=.62*(1-s.night)+.33;
-  this.scene.environmentIntensity=.52*(1-s.night)+.25;
+  this.sun.intensity=2.8*(1-s.night)+.45;this.sun.color.set(s.returning>.1?'#ffd6a7':'#fff3de');this.hemi.intensity=.55*(1-s.night)+.30;this.fill.intensity=.30*(1-s.night)+.18;
+  this.scene.environmentIntensity=.28*(1-s.night)+.20;
   this.state=s;this.renderer.shadowMap.needsUpdate=true;
  }
  animate(time){

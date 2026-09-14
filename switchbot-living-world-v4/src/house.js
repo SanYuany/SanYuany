@@ -163,7 +163,7 @@ export function createHouse(){
  }
  curtain(-1);curtain(1);
  refs.bedLight=lamp('bedroom',2.15,6.03,-.08,f2,1.1);
- plant(4.03,3.33,1.89,.75,f2);picture(1.92,5.12,-1.9,.58,.71,f2);
+ plant(4.03,3.33,1.89,.75,f2); // Window remains unobstructed; no floating artwork.
  box('bedroom bench',1.31,.11,.39,2.03,3.87,2.56,oak,f2,.035);for(const x of [1.57,2.5])box('bench leg',.07,.46,.30,x,3.58,2.56,walnut,f2,.015);
  // Upstairs study / child room. Quiet lived-in details give the camera parallax cues.
  box('upstairs dividing wall',.12,2.74,4.9,-.3,4.65,-1.0,plaster,f2);
@@ -192,5 +192,11 @@ export function createHouse(){
  box('windscreen',1.1,.44,.025,0,1.0,.61,mat('auto glass','#4c686b',.22,{metalness:.45}),car,.07);
  for(const x of [-.58,.58])for(const z of [-.83,.83]){const wheel=cyl('wheel',.25,.135,x,.29,z,ink,car);wheel.rotation.z=Math.PI/2;}
  for(const x of [-.49,.49])box('headlight',.28,.095,.025,x,.55,1.425,mat('headlights','#e7e8db',.35),car,.035);
+ // Grounding contact shadows are original procedural textures, not baked foreign assets.
+ const aoCanvas=document.createElement('canvas');aoCanvas.width=aoCanvas.height=128;const ac=aoCanvas.getContext('2d');
+ const ag=ac.createRadialGradient(64,64,3,64,64,64);ag.addColorStop(0,'rgba(48,41,30,.35)');ag.addColorStop(.5,'rgba(48,41,30,.18)');ag.addColorStop(1,'rgba(48,41,30,0)');ac.fillStyle=ag;ac.fillRect(0,0,128,128);
+ const aoTexture=new T.CanvasTexture(aoCanvas);aoTexture.colorSpace=T.SRGBColorSpace;
+ const aoMat=new T.MeshBasicMaterial({map:aoTexture,transparent:true,depthWrite:false,opacity:.72});
+ for(const [x,y,z,w,d,parent] of [[-3.35,.304,-.52,3.45,1.8,f1],[-2.8,.31,1.16,2.0,1.4,f1],[-.32,.263,.32,2.4,2.8,f1],[4.46,.259,1.7,1.0,1.9,f1],[2.02,3.349,-.68,2.75,2.8,f2],[.48,3.353,-1.3,.8,.8,f2],[3.56,3.353,-1.3,.8,.8,f2]]){const m=new T.Mesh(new T.PlaneGeometry(w,d),aoMat);m.name='furniture contact shadow';m.rotation.x=-Math.PI/2;m.position.set(x,y,z);parent.add(m);}
  refs.materials=materials;refs.box=box;return refs;
 }
