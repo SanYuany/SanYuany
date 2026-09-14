@@ -3,6 +3,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {createHouse} from './house.js';
 import {getCamera,getState,roomViews,clamp} from './timeline.js';
+import {transitionAt} from './spatial-math.js';
 
 export class LivingWorld {
  constructor(canvas,{reducedMotion=false,onFrame=()=>{}}={}){
@@ -40,7 +41,7 @@ export class LivingWorld {
  setCamera(frame){this.camera.position.set(...frame.position);this.look.set(...frame.target);this.camera.lookAt(this.look);}
  setMode(mode){this.mode=mode;this.controls.enabled=mode==='explore';this.canvas.style.touchAction=mode==='explore'?'none':'pan-y';this.dirty=true;if(mode==='explore'){this.controls.target.copy(this.look);this.setRoom('all');}else{this.roomTransition=null;this.setFloor('all');}}
  setRoom(id){const view=roomViews[id]||roomViews.all;const target=new T.Vector3(...view.target),position=new T.Vector3(...view.position);if(this.mobile)position.sub(target).multiplyScalar(id==='all'||id==='outside'?1.55:1.30).add(target);
-  this.roomTransition={from:this.camera.position.clone(),fromTarget:this.controls.target.clone(),to:position,toTarget:target,t:0};this.setFloor(id==='bedroom'?'2':id==='living'||id==='entrance'?'1':'all');this.dirty=true;}
+  this.roomTransition={from:this.camera.position.clone(),fromTarget:this.controls.target.clone(),to:position,toTarget:target,t:0,started:performance.now()};this.setFloor(id==='bedroom'?'2':id==='living'||id==='entrance'?'1':'all');this.dirty=true;}
  setFloor(value){this.floor=value;this.house.floor1.visible=value!=='2';this.house.floor2.visible=value!=='1';this.dirty=true;this.renderer.shadowMap.needsUpdate=true;}
  setTime(value){this.exploreTime=value==='night'?.94:.68;this.dirty=true;}
  applyState(s){
@@ -66,7 +67,7 @@ export class LivingWorld {
    if(Math.abs(this.progress-this.targetProgress)<.00001)this.progress=this.targetProgress;
    if(old!==this.progress||this.dirty){this.setCamera(getCamera(this.progress,this.mobile));this.applyState(getState(this.progress));this.dirty=true;}
   }else{
-   if(this.roomTransition){const tr=this.roomTransition;tr.t=Math.min(1,tr.t+dt/1.1);const t=this.reducedMotion?1:tr.t*tr.t*(3-2*tr.t);this.camera.position.lerpVectors(tr.from,tr.to,t);this.controls.target.lerpVectors(tr.fromTarget,tr.toTarget,t);this.camera.lookAt(this.controls.target);this.look.copy(this.controls.target);this.dirty=true;if(t>=1)this.roomTransition=null;}
+   if(this.roomTransition){const tr=this.roomTransition;const t=transitionAt(tr.started,time,this.reducedMotion);tr.t=t;this.camera.position.lerpVectors(tr.from,tr.to,t);this.controls.target.lerpVectors(tr.fromTarget,tr.toTarget,t);this.camera.lookAt(this.controls.target);this.look.copy(this.controls.target);this.dirty=true;if(t>=1)this.roomTransition=null;}
    if(this.dirty)this.applyState(getState(this.exploreTime??.68));
    this.controls.update(dt);
   }
