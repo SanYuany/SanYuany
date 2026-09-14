@@ -6,85 +6,85 @@ TAP version 13
 # Subtest: clean checkout builds without an untracked empty assets folder
 ok 1 - clean checkout builds without an untracked empty assets folder
   ---
-  duration_ms: 58.624009
+  duration_ms: 50.670464
   type: 'test'
   ...
 # Subtest: story computes physical states, not only labels
 ok 2 - story computes physical states, not only labels
   ---
-  duration_ms: 2.294105
+  duration_ms: 2.101405
   type: 'test'
   ...
 # Subtest: return animation is deterministic when scroll reverses
 ok 3 - return animation is deterministic when scroll reverses
   ---
-  duration_ms: 0.934948
+  duration_ms: 0.988691
   type: 'test'
   ...
 # Subtest: return lights follow door opening; never claim automatic door hardware
 ok 4 - return lights follow door opening; never claim automatic door hardware
   ---
-  duration_ms: 0.181865
+  duration_ms: 0.202861
   type: 'test'
   ...
 # Subtest: camera path is finite and continuous across 1000 scrub positions
 ok 5 - camera path is finite and continuous across 1000 scrub positions
   ---
-  duration_ms: 3.696263
+  duration_ms: 4.725645
   type: 'test'
   ...
 # Subtest: split curtains need two motors and owned devices are not added twice
 ok 6 - split curtains need two motors and owned devices are not added twice
   ---
-  duration_ms: 0.566028
+  duration_ms: 0.677713
   type: 'test'
   ...
 # Subtest: hands-free scene requires face keypad; hub shared across scene bundles
 ok 7 - hands-free scene requires face keypad; hub shared across scene bundles
   ---
-  duration_ms: 0.208872
+  duration_ms: 0.335766
   type: 'test'
   ...
 # Subtest: planner clamps counts and rejects unrecognized scenes
 ok 8 - planner clamps counts and rejects unrecognized scenes
   ---
-  duration_ms: 0.235338
+  duration_ms: 0.241578
   type: 'test'
   ...
 # Subtest: coming-home hero sightline clears the front-centre post on both layouts
 ok 9 - coming-home hero sightline clears the front-centre post on both layouts
   ---
-  duration_ms: 2.487104
+  duration_ms: 0.44575
   type: 'test'
   ...
 # Subtest: autoplay follows elapsed time even when rendering skips frames
 ok 10 - autoplay follows elapsed time even when rendering skips frames
   ---
-  duration_ms: 0.401079
+  duration_ms: 0.491436
   type: 'test'
   ...
 # Subtest: export preserves deduplicated products and owned-device subtraction
 ok 11 - export preserves deduplicated products and owned-device subtraction
   ---
-  duration_ms: 3.689309
+  duration_ms: 3.32219
   type: 'test'
   ...
 # Subtest: saved plan has no WebGL, JavaScript, or remote runtime dependency
 ok 12 - saved plan has no WebGL, JavaScript, or remote runtime dependency
   ---
-  duration_ms: 0.871284
+  duration_ms: 0.651758
   type: 'test'
   ...
 # Subtest: export escapes textual content and rejects non-HTTPS product URLs
 ok 13 - export escapes textual content and rejects non-HTTPS product URLs
   ---
-  duration_ms: 0.534462
+  duration_ms: 0.426814
   type: 'test'
   ...
 # Subtest: saved plan contains compatibility warnings and is explicitly an estimate
 ok 14 - saved plan contains compatibility warnings and is explicitly an estimate
   ---
-  duration_ms: 0.431854
+  duration_ms: 0.500679
   type: 'test'
   ...
 1..14
@@ -95,4 +95,4 @@ ok 14 - saved plan contains compatibility warnings and is explicitly an estimate
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 142.295637
+# duration_ms 111.576449
