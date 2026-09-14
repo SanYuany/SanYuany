@@ -1,0 +1,133 @@
+name: Finish and deploy SwitchBot V4
+on:
+  push:
+    branches: [switchbot-living-world-v4]
+    paths: ['.github/workflows/switchbot-v4-release.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: switchbot-v4-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: switchbot-living-world-v4
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate a one-run encryption key; private key never leaves runner
+        run: |
+          mkdir -p /tmp/sb-key /tmp/sb-diagnostics
+          node --input-type=module <<'JS'
+          import {generateKeyPairSync} from 'node:crypto';
+          import {writeFileSync} from 'node:fs';
+          const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:3072});
+          writeFileSync('/tmp/sb-key/private.pem',privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
+          writeFileSync('/tmp/sb-key/public.json',JSON.stringify({runId:process.env.GITHUB_RUN_ID,publicKey:publicKey.export({type:'spki',format:'pem'}),siteId:'31ad7518-78b8-4219-8463-839dde228c31'}));
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v4-release-public-key
+          path: /tmp/sb-key/public.json
+          retention-days: 1
+      - name: Install browser runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Reproduce old export with timing probes
+        working-directory: switchbot-living-world-v4
+        run: |
+          node scripts/serve.mjs >/tmp/sb-server.log 2>&1 &
+          sleep 2
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';import fs from 'node:fs';
+          const b=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
+          const p=await b.newPage({viewport:{width:960,height:680},acceptDownloads:true});const report={errors:[],downloads:[],start:Date.now()};
+          p.on('pageerror',e=>report.errors.push(e.message));p.on('download',d=>report.downloads.push({name:d.suggestedFilename(),at:Date.now()}));
+          try{await p.goto('http://127.0.0.1:4174');await p.waitForFunction(()=>window.__livingWorld?.canvas.dataset.ready==='true',null,{timeout:90000});
+          await p.evaluate(()=>{window.__app.stopPlay();window.__livingWorld.active=false;window.__probe=[];const w=window.__livingWorld;const render=w.renderer.render.bind(w.renderer);w.renderer.render=(...args)=>{window.__probe.push(['render-start',performance.now()]);render(...args);window.__probe.push(['render-end',performance.now()]);};const capture=w.canvas.toDataURL.bind(w.canvas);w.canvas.toDataURL=(...args)=>{window.__probe.push(['readback-start',performance.now()]);const r=capture(...args);window.__probe.push(['readback-end',performance.now(),r.length]);return r;};});
+          await p.locator('#exportPlan').scrollIntoViewIfNeeded();
+          const wait=p.waitForEvent('download',{timeout:15000}).then(d=>({ok:true,name:d.suggestedFilename()})).catch(e=>({ok:false,error:e.message}));await p.locator('#exportPlan').click({timeout:30000});report.result=await wait;report.probe=await p.evaluate(()=>window.__probe);
+          }catch(e){report.failure=e.message;}finally{fs.writeFileSync('/tmp/sb-diagnostics/export-baseline.json',JSON.stringify(report,null,2));await b.close();}
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v4-export-baseline
+          path: /tmp/sb-diagnostics/
+          retention-days: 14
+      - name: Await encrypted deployment authorization for this run only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'JS'
+          import {privateDecrypt,constants,createDecipheriv} from 'node:crypto';import fs from 'node:fs';
+          const repo=process.env.GITHUB_REPOSITORY,ref='switchbot-living-world-v4',runId=process.env.GITHUB_RUN_ID;
+          const endpoint=`https://api.github.com/repos/${repo}/contents/ops/switchbot-v4-release-envelope.json?ref=${ref}`;
+          let payload;
+          for(let i=0;i<90;i++){const r=await fetch(endpoint,{headers:{Authorization:`Bearer ${process.env.GH_TOKEN}`,Accept:'application/vnd.github+json'}});if(r.ok){const f=await r.json();const e=JSON.parse(Buffer.from(f.content,'base64').toString());if(e.runId===runId){const key=privateDecrypt({key:fs.readFileSync('/tmp/sb-key/private.pem'),padding:constants.RSA_PKCS1_OAEP_PADDING,oaepHash:'sha256'},Buffer.from(e.key,'base64'));const decipher=createDecipheriv('aes-256-gcm',key,Buffer.from(e.iv,'base64'));decipher.setAuthTag(Buffer.from(e.tag,'base64'));payload=JSON.parse(Buffer.concat([decipher.update(Buffer.from(e.data,'base64')),decipher.final()]).toString());break;}}await new Promise(r=>setTimeout(r,10000));}
+          if(!payload)throw new Error('No matching sealed deployment instruction received. Nothing deployed.');
+          if(payload.siteId!=='31ad7518-78b8-4219-8463-839dde228c31'||!/^https:\/\/netlify-mcp\.netlify\.app\/proxy\//.test(payload.proxy))throw new Error('Invalid deployment target');
+          console.log('::add-mask::'+payload.proxy);console.log('::add-mask::'+payload.proxy.split('/').pop());
+          fs.writeFileSync('/tmp/sb-key/deploy.json',JSON.stringify(payload),{mode:0o600});fs.unlinkSync('/tmp/sb-key/private.pem');
+          fs.appendFileSync(process.env.GITHUB_ENV,'RELEASE_SHA='+payload.sourceSha+'\n');
+          JS
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          path: release-source
+          persist-credentials: false
+      - name: Validate and build the exact release source
+        working-directory: release-source/switchbot-living-world-v4
+        run: |
+          mkdir -p evidence
+          npm test | tee evidence/unit-tests.txt
+          npm run check
+          npm run build
+      - name: Full desktop mobile and download regression; record running 3D site
+        working-directory: release-source/switchbot-living-world-v4
+        env:
+          BASE_URL: http://127.0.0.1:4176
+          PORT: '4176'
+        run: |
+          node scripts/serve.mjs dist >/tmp/sb-release-server.log 2>&1 &
+          sleep 2
+          node tests/browser.mjs
+      - name: Deploy the verified source through the authorized Netlify proxy
+        working-directory: release-source/switchbot-living-world-v4
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';import {spawn} from 'node:child_process';
+          const p=JSON.parse(fs.readFileSync('/tmp/sb-key/deploy.json','utf8'));
+          console.log('::add-mask::'+p.proxy);console.log('::add-mask::'+p.proxy.split('/').pop());
+          const child=spawn('npx',['-y','@netlify/mcp@latest','--site-id',p.siteId,'--proxy-path',p.proxy],{stdio:['ignore','pipe','pipe'],env:process.env});let log='';
+          const emit=c=>{const s=c.toString().replaceAll(p.proxy,'[REDACTED_PROXY]').replaceAll(p.proxy.split('/').pop(),'[REDACTED_TOKEN]');log+=s;process.stdout.write(s);};child.stdout.on('data',emit);child.stderr.on('data',emit);
+          const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);});fs.writeFileSync('evidence/netlify-deployment.txt',log);fs.unlinkSync('/tmp/sb-key/deploy.json');if(code!==0)process.exit(code||1);
+          JS
+      - name: Verify the actual Netlify production site
+        working-directory: release-source/switchbot-living-world-v4
+        env:
+          BASE_URL: https://switchbot-living-world.netlify.app
+          SKIP_VIDEO: '1'
+          SMOKE_ONLY: '1'
+          EVIDENCE_DIR: public-evidence
+        run: node tests/browser.mjs
+      - name: Preserve source, deployment and visual evidence
+        if: always()
+        run: |
+          rm -f /tmp/sb-key/private.pem /tmp/sb-key/deploy.json
+          if [ -d release-source/switchbot-living-world-v4 ]; then tar --exclude=node_modules -czf /tmp/SwitchBot-Living-World-V4-release.tar.gz -C release-source switchbot-living-world-v4; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-v4-complete-release
+          path: |
+            /tmp/SwitchBot-Living-World-V4-release.tar.gz
+            release-source/switchbot-living-world-v4/evidence/
+            release-source/switchbot-living-world-v4/public-evidence/
+          retention-days: 14
