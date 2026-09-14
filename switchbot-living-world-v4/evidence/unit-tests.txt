@@ -3,90 +3,96 @@
 > node --test tests/*.test.js
 
 TAP version 13
-# Subtest: story computes physical states, not only labels
-ok 1 - story computes physical states, not only labels
+# Subtest: clean checkout builds without an untracked empty assets folder
+ok 1 - clean checkout builds without an untracked empty assets folder
   ---
-  duration_ms: 2.221719
+  duration_ms: 51.265888
+  type: 'test'
+  ...
+# Subtest: story computes physical states, not only labels
+ok 2 - story computes physical states, not only labels
+  ---
+  duration_ms: 3.803048
   type: 'test'
   ...
 # Subtest: return animation is deterministic when scroll reverses
-ok 2 - return animation is deterministic when scroll reverses
+ok 3 - return animation is deterministic when scroll reverses
   ---
-  duration_ms: 0.967969
+  duration_ms: 1.354681
   type: 'test'
   ...
 # Subtest: return lights follow door opening; never claim automatic door hardware
-ok 3 - return lights follow door opening; never claim automatic door hardware
+ok 4 - return lights follow door opening; never claim automatic door hardware
   ---
-  duration_ms: 0.202487
+  duration_ms: 0.300139
   type: 'test'
   ...
 # Subtest: camera path is finite and continuous across 1000 scrub positions
-ok 4 - camera path is finite and continuous across 1000 scrub positions
+ok 5 - camera path is finite and continuous across 1000 scrub positions
   ---
-  duration_ms: 3.731884
+  duration_ms: 6.266763
   type: 'test'
   ...
 # Subtest: split curtains need two motors and owned devices are not added twice
-ok 5 - split curtains need two motors and owned devices are not added twice
+ok 6 - split curtains need two motors and owned devices are not added twice
   ---
-  duration_ms: 0.523263
+  duration_ms: 0.819986
   type: 'test'
   ...
 # Subtest: hands-free scene requires face keypad; hub shared across scene bundles
-ok 6 - hands-free scene requires face keypad; hub shared across scene bundles
+ok 7 - hands-free scene requires face keypad; hub shared across scene bundles
   ---
-  duration_ms: 0.212495
+  duration_ms: 0.348358
   type: 'test'
   ...
 # Subtest: planner clamps counts and rejects unrecognized scenes
-ok 7 - planner clamps counts and rejects unrecognized scenes
+ok 8 - planner clamps counts and rejects unrecognized scenes
   ---
-  duration_ms: 0.300659
+  duration_ms: 0.384295
   type: 'test'
   ...
 # Subtest: coming-home hero sightline clears the front-centre post on both layouts
-ok 8 - coming-home hero sightline clears the front-centre post on both layouts
+ok 9 - coming-home hero sightline clears the front-centre post on both layouts
   ---
-  duration_ms: 0.52258
+  duration_ms: 3.126869
   type: 'test'
   ...
 # Subtest: autoplay follows elapsed time even when rendering skips frames
-ok 9 - autoplay follows elapsed time even when rendering skips frames
+ok 10 - autoplay follows elapsed time even when rendering skips frames
   ---
-  duration_ms: 0.578756
+  duration_ms: 0.581072
   type: 'test'
   ...
 # Subtest: export preserves deduplicated products and owned-device subtraction
-ok 10 - export preserves deduplicated products and owned-device subtraction
+ok 11 - export preserves deduplicated products and owned-device subtraction
   ---
-  duration_ms: 2.700288
+  duration_ms: 4.54528
   type: 'test'
   ...
 # Subtest: saved plan has no WebGL, JavaScript, or remote runtime dependency
-ok 11 - saved plan has no WebGL, JavaScript, or remote runtime dependency
+ok 12 - saved plan has no WebGL, JavaScript, or remote runtime dependency
   ---
-  duration_ms: 0.608421
+  duration_ms: 0.771817
   type: 'test'
   ...
 # Subtest: export escapes textual content and rejects non-HTTPS product URLs
-ok 12 - export escapes textual content and rejects non-HTTPS product URLs
+ok 13 - export escapes textual content and rejects non-HTTPS product URLs
   ---
-  duration_ms: 0.361471
+  duration_ms: 0.5001
   type: 'test'
   ...
 # Subtest: saved plan contains compatibility warnings and is explicitly an estimate
-ok 13 - saved plan contains compatibility warnings and is explicitly an estimate
+ok 14 - saved plan contains compatibility warnings and is explicitly an estimate
   ---
-  duration_ms: 0.418318
+  duration_ms: 0.565733
   type: 'test'
   ...
-1..13
-# tests 13
+1..14
+# tests 14
 # suites 0
-# pass 13
+# pass 14
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 97.862885
+# duration_ms 111.440886
