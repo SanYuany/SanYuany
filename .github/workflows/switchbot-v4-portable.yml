@@ -1,0 +1,53 @@
+name: Verify SwitchBot V4 portable 3D delivery
+on:
+  push:
+    branches: [switchbot-living-world-v4]
+    paths: ['.github/workflows/switchbot-v4-portable.yml','tools/switchbot-v4/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install reproducible packaging and browser tools
+        run: |
+          npm install --no-save esbuild@0.25.9 playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Build portable file from the same source
+        run: node tools/switchbot-v4/build-portable.mjs
+      - name: Offline runtime, 3D motion, mobile and plan download
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';import fs from 'node:fs';import path from 'node:path';import {pathToFileURL} from 'node:url';import assert from 'node:assert/strict';
+          const out=path.resolve('portable'),url=pathToFileURL(path.join(out,'SwitchBot-Living-World-3D.html')).href;
+          const report={url:'local file',checks:[],errors:[],network:[],checkedAt:new Date().toISOString()};
+          const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
+          const p=await browser.newPage({viewport:{width:1280,height:800},acceptDownloads:true,offline:true});p.on('pageerror',e=>report.errors.push(e.message));p.on('request',r=>{if(/^https?:/.test(r.url()))report.network.push(r.url());});
+          const shot=async name=>{const c=await p.context().newCDPSession(p);const r=await c.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(out,name+'.png'),Buffer.from(r.data,'base64'));await c.detach();};
+          try{
+          await p.goto(url);await p.waitForFunction(()=>window.__livingWorld?.canvas.dataset.ready==='true',null,{timeout:90000});assert.equal(await p.locator('#fallback').isVisible(),false);report.checks.push('Complete renderer initialized offline from one local file');
+          await p.evaluate(()=>window.__app.seek(0,true));await p.waitForTimeout(400);const start=await p.evaluate(()=>window.__livingWorld.snapshot());await shot('portable-overview');
+          await p.evaluate(()=>window.__app.seek(.21,true));await p.waitForTimeout(400);const morning=await p.evaluate(()=>window.__livingWorld.snapshot());assert.ok(morning.state.curtain>.95);assert.ok(Math.hypot(...morning.camera.map((v,i)=>v-start.camera[i]))>3);await shot('portable-morning');
+          await p.evaluate(()=>window.__app.seek(.71,true));await p.waitForTimeout(400);const home=await p.evaluate(()=>window.__livingWorld.snapshot());assert.ok(home.state.entry>.9&&home.state.living>.9);assert.ok(home.triangles>5000);await shot('portable-coming-home');report.checks.push('Actual three-dimensional camera and device states, not flat CSS animation');
+          await p.locator('#planNav').click();await p.locator('#windowCount').selectOption('2');await p.locator('[data-owned="curtain"]').fill('1');assert.equal(await p.evaluate(()=>window.__currentPlan.products.find(x=>x.id==='curtain').toBuy),3);
+          const [d]=await Promise.all([p.waitForEvent('download',{timeout:25000}),p.locator('#exportPlan').click()]);await d.saveAs(path.join(out,'example-plan.html'));report.checks.push('Saved consumer plan downloads offline with correct quantity');
+          await p.setViewportSize({width:390,height:844});await p.evaluate(()=>window.__app.seek(.21,true));await p.waitForTimeout(400);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await shot('portable-mobile');report.checks.push('Portrait layout and 3D canvas work offline');
+          assert.deepEqual(report.errors,[]);assert.deepEqual(report.network,[]);report.checks.push('Zero external runtime requests');report.result='PASS';
+          }catch(e){report.result='FAIL';report.failure=e.stack;try{await shot('portable-failure');}catch{}}
+          finally{fs.writeFileSync(path.join(out,'portable-qa.json'),JSON.stringify(report,null,2));await browser.close();}
+          console.log(JSON.stringify(report,null,2));if(report.result!=='PASS')process.exitCode=1;
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-v4-portable-3d
+          path: portable/
+          retention-days: 14
