@@ -6,109 +6,109 @@ TAP version 13
 # Subtest: clean checkout builds without an untracked empty assets folder
 ok 1 - clean checkout builds without an untracked empty assets folder
   ---
-  duration_ms: 62.818308
+  duration_ms: 45.508257
   type: 'test'
   ...
 # Subtest: story computes physical states, not only labels
 ok 2 - story computes physical states, not only labels
   ---
-  duration_ms: 2.828106
+  duration_ms: 1.728806
   type: 'test'
   ...
 # Subtest: return animation is deterministic when scroll reverses
 ok 3 - return animation is deterministic when scroll reverses
   ---
-  duration_ms: 1.346935
+  duration_ms: 0.695909
   type: 'test'
   ...
 # Subtest: return lights follow door opening; never claim automatic door hardware
 ok 4 - return lights follow door opening; never claim automatic door hardware
   ---
-  duration_ms: 0.248432
+  duration_ms: 0.192485
   type: 'test'
   ...
 # Subtest: camera path is finite and continuous across 1000 scrub positions
 ok 5 - camera path is finite and continuous across 1000 scrub positions
   ---
-  duration_ms: 4.960953
+  duration_ms: 2.749866
   type: 'test'
   ...
 # Subtest: split curtains need two motors and owned devices are not added twice
 ok 6 - split curtains need two motors and owned devices are not added twice
   ---
-  duration_ms: 0.681372
+  duration_ms: 0.421433
   type: 'test'
   ...
 # Subtest: hands-free scene requires face keypad; hub shared across scene bundles
 ok 7 - hands-free scene requires face keypad; hub shared across scene bundles
   ---
-  duration_ms: 0.274998
+  duration_ms: 0.211913
   type: 'test'
   ...
 # Subtest: planner clamps counts and rejects unrecognized scenes
 ok 8 - planner clamps counts and rejects unrecognized scenes
   ---
-  duration_ms: 0.275301
+  duration_ms: 0.246925
   type: 'test'
   ...
 # Subtest: coming-home hero sightline clears the front-centre post on both layouts
 ok 9 - coming-home hero sightline clears the front-centre post on both layouts
   ---
-  duration_ms: 0.532766
+  duration_ms: 0.376727
   type: 'test'
   ...
 # Subtest: autoplay follows elapsed time even when rendering skips frames
 ok 10 - autoplay follows elapsed time even when rendering skips frames
   ---
-  duration_ms: 0.473414
+  duration_ms: 0.369867
   type: 'test'
   ...
 # Subtest: export preserves deduplicated products and owned-device subtraction
 ok 11 - export preserves deduplicated products and owned-device subtraction
   ---
-  duration_ms: 2.62366
+  duration_ms: 2.623439
   type: 'test'
   ...
 # Subtest: saved plan has no WebGL, JavaScript, or remote runtime dependency
 ok 12 - saved plan has no WebGL, JavaScript, or remote runtime dependency
   ---
-  duration_ms: 0.557962
+  duration_ms: 0.579748
   type: 'test'
   ...
 # Subtest: export escapes textual content and rejects non-HTTPS product URLs
 ok 13 - export escapes textual content and rejects non-HTTPS product URLs
   ---
-  duration_ms: 0.319795
+  duration_ms: 0.353793
   type: 'test'
   ...
 # Subtest: saved plan contains compatibility warnings and is explicitly an estimate
 ok 14 - saved plan contains compatibility warnings and is explicitly an estimate
   ---
-  duration_ms: 0.314506
+  duration_ms: 0.348575
   type: 'test'
   ...
 # Subtest: orbit moves a physical camera around a fixed world-space target
 ok 15 - orbit moves a physical camera around a fixed world-space target
   ---
-  duration_ms: 1.355272
+  duration_ms: 1.508451
   type: 'test'
   ...
 # Subtest: orbit is finite repeatable and portrait is independently framed
 ok 16 - orbit is finite repeatable and portrait is independently framed
   ---
-  duration_ms: 0.281035
+  duration_ms: 0.223641
   type: 'test'
   ...
 # Subtest: opening moves continuously with no reset
 ok 17 - opening moves continuously with no reset
   ---
-  duration_ms: 1.305448
+  duration_ms: 1.184401
   type: 'test'
   ...
 # Subtest: room flight completes by elapsed time even when rendering drops frames
 ok 18 - room flight completes by elapsed time even when rendering drops frames
   ---
-  duration_ms: 0.728693
+  duration_ms: 0.788436
   type: 'test'
   ...
 1..18
@@ -119,4 +119,4 @@ ok 18 - room flight completes by elapsed time even when rendering drops frames
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 150.006085
+# duration_ms 129.632474
