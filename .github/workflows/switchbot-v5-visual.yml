@@ -12,7 +12,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,11 +27,15 @@ jobs:
           patch=zlib.decompress(base64.b64decode(text))
           assert hashlib.sha256(patch).hexdigest()=='fcab5dfd792d7f0d84474202996aa15146e56a19f4371f2830ee25194b66c405'
           Path('/tmp/v5.patch').write_bytes(patch)
+          review=zlib.decompress(base64.b64decode(Path('delivery/v5-reviewed.b64').read_text().strip()))
+          assert hashlib.sha256(review).hexdigest()=='5fcf55debc17b6748b67f559e976c1768a08e3e59d1de8be54ab5b6c7ef0b644'
+          Path('/tmp/v5-reviewed.patch').write_bytes(review)
           dest=Path('switchbot-living-world-v5')
           if dest.exists():shutil.rmtree(dest)
           shutil.copytree('switchbot-living-world-v4',dest,ignore=shutil.ignore_patterns('node_modules','dist','evidence','portable','.git'))
           PY
           patch --batch -p1 -d switchbot-living-world-v5 < /tmp/v5.patch
+          patch --batch -p1 -d switchbot-living-world-v5 < /tmp/v5-reviewed.patch
           cp delivery/v5-portable.py switchbot-living-world-v5/scripts/portable.py
           cp delivery/v5-browser.mjs switchbot-living-world-v5/tests/v5-browser.mjs
           python3 - <<'PY'
