@@ -1,8 +1,8 @@
-name: Coming Home scene review
+name: Coming Home reviewed films
 on:
   push:
     branches: [switchbot-coming-home-study]
-    paths: ['coming-home-study/**', '.github/workflows/coming-home-study.yml']
+    paths: ['.github/workflows/coming-home-study.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,14 +10,17 @@ concurrency:
   group: coming-home-study
   cancel-in-progress: true
 jobs:
-  review:
+  render:
+    strategy:
+      fail-fast: false
+      matrix: {view: [desktop, mobile]}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - name: Restore the same canonical house
+      - name: Restore the canonical house and apply reviewed sightlines
         run: |
           cp -r switchbot-living-world-v5/vendor coming-home-study/
           mkdir -p coming-home-study/src coming-home-study/evidence coming-home-study/media
@@ -27,39 +30,36 @@ jobs:
           p=Path('coming-home-study/src/house.js');s=p.read_text();assert 'compactHouse(refs);return refs;' in s;p.write_text(s.replace('compactHouse(refs);return refs;','return refs;'))
           Path('coming-home-study/render.html').write_text('''<!doctype html><html><meta charset="utf-8"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}canvas{display:block;width:100%;height:100%}</style><script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script><canvas id="c"></canvas><script type="module">import {ComingHomeStage} from './stage.js';window.stage=new ComingHomeStage(document.getElementById('c'));window.seek=t=>stage.seek(t);window.addEventListener('resize',()=>{stage.resize();stage.seek(stage.state.t)});</script></html>''')
           PY
+          python3 coming-home-study/polish.py
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+          ffmpeg -version | head -1
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Capture actual camera views and products
+      - name: Record same-scene motion and physical evidence
+        env:
+          VIEW: ${{ matrix.view }}
         run: |
           python3 -m http.server 4188 --directory coming-home-study >/tmp/coming-home-http.log 2>&1 &
           sleep 2
-          cat > scene-review.mjs <<'JS'
-          import {chromium} from 'playwright';import fs from 'node:fs';
-          const b=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
-          const page=await b.newPage({viewport:{width:960,height:600},deviceScaleFactor:1});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-          await page.goto('http://127.0.0.1:4188/render.html');await page.waitForFunction(()=>window.stage?.canvas.dataset.ready==='true',{timeout:60000});
+          cat > film.mjs <<'JS'
+          import {chromium} from 'playwright';import fs from 'node:fs';import assert from 'node:assert/strict';
+          const view=process.env.VIEW,mobile=view==='mobile',out='coming-home-study/evidence/'+view;fs.mkdirSync(out+'/frames',{recursive:true});
+          const b=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});const page=await b.newPage({viewport:mobile?{width:450,height:900}:{width:960,height:600},deviceScaleFactor:1});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+          await page.goto('http://127.0.0.1:4188/render.html');await page.waitForFunction(()=>window.stage?.canvas.dataset.ready==='true',null,{timeout:60000});
           const cdp=await page.context().newCDPSession(page),states=[];
-          async function shot(name){const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync('coming-home-study/evidence/'+name+'.png',Buffer.from(r.data,'base64'));}
-          for(const [i,t] of [0,3.8,7.8,10.7,12.5,14.5,17.8,20,23.7].entries()){states.push(await page.evaluate(t=>seek(t),t));await shot('desktop-'+i+'-'+t);}
-          for(const id of ['keypad','lock','hub']){await page.evaluate(id=>stage.productView(id),id);await shot('product-'+id);}
-          await page.setViewportSize({width:450,height:900});await page.evaluate(()=>stage.resize());
-          for(const t of [0,7.8,12.5,17.8,23.7]){await page.evaluate(t=>seek(t),t);await shot('mobile-'+t);}
-          fs.writeFileSync('coming-home-study/evidence/report.json',JSON.stringify({errors,states},null,2));await b.close();if(errors.length)process.exit(1);
+          for(const [i,t] of [0,3.8,7.8,10.7,12.5,14.5,17.8,20,23.7].entries()){states.push(await page.evaluate(t=>seek(t),t));const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(out+'/'+i+'-'+t+'.png',Buffer.from(r.data,'base64'));}
+          await page.evaluate(()=>seek(11.3));assert.ok(await page.evaluate(()=>stage.lastGripError<.001),'manual hand must contact the actual handle');assert.equal(errors.length,0);
+          const count=384,fps=16;
+          for(let i=0;i<count;i++){await page.evaluate(t=>seek(t),24*i/(count-1));const r=await cdp.send('Page.captureScreenshot',{format:'jpeg',quality:85});fs.writeFileSync(out+'/frames/'+String(i).padStart(4,'0')+'.jpg',Buffer.from(r.data,'base64'));if(i%64===0)console.log(view,i,count);}
+          fs.writeFileSync(out+'/report.json',JSON.stringify({view,seconds:24,frames:count,outputFPS:fps,renderMode:'deterministic browser 3D frame capture, not real-time FPS measurement',errors,states,handContactCheck:true},null,2));await b.close();
           JS
-          node scene-review.mjs
-      - name: Fetch official reference-only packshots for the internal review
-        run: |
-          python3 - <<'PY'
-          import urllib.request
-          from pathlib import Path
-          urls={'lock':'https://www.switchbot.jp/cdn/shop/files/59_2x_070b4f90-1856-4257-8850-9535863d628d_700x700.webp?v=1745576039','keypad':'https://www.switchbot.jp/cdn/shop/files/Keypad_vision_JP_Amazon_Images_1600x1600__2x_1_700x700.webp?v=1757581073','hub':'https://www.switchbot.jp/cdn/shop/files/Hub_3_JP_1600x1600_02_1x_f13df486-6ca8-4398-8f4f-7e9636bfc49f_700x700.webp?v=1760694016'}
-          for name,url in urls.items():
-            try: urllib.request.urlretrieve(url,'coming-home-study/media/'+name+'.webp')
-            except Exception as e: print(name,'reference image unavailable:',e)
-          PY
+          node film.mjs
+          ffmpeg -y -loglevel error -framerate 16 -i coming-home-study/evidence/${VIEW}/frames/%04d.jpg -c:v libx264 -preset fast -crf 19 -pix_fmt yuv420p -g 6 -movflags +faststart coming-home-study/media/coming-home-${VIEW}.mp4
+          ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=width,height,nb_read_frames -show_entries format=duration -of json coming-home-study/media/coming-home-${VIEW}.mp4 > coming-home-study/evidence/${VIEW}/ffprobe.json
+          rm -r coming-home-study/evidence/${VIEW}/frames
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coming-home-scene-review
+          name: coming-home-reviewed-${{ matrix.view }}
           path: coming-home-study/
           retention-days: 14
