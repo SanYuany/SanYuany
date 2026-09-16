@@ -99,10 +99,20 @@ export function finishArchitecture(house) {
   for(let i=0;i<node.count;i++){node.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);scale.set(scale.x*.9,scale.x*1.35,1);matrix.compose(position,rotation,scale);node.setMatrixAt(i,matrix);}
   node.instanceMatrix.needsUpdate=true;node.computeBoundingSphere();
  }});
- let closed=false;
+ // Facade materials are isolated so revealing rooms never dims their furniture.
+ const facadeMaterials=[];
+ for(const group of [lower,upper])group.traverse(mesh=>{if(!mesh.isMesh)return;const original=mesh.material;mesh.material=original.clone();materials.push(mesh.material);facadeMaterials.push({mesh,material:mesh.material,opacity:original.opacity,transparent:original.transparent,depthWrite:original.depthWrite,shadow:mesh.castShadow});});
+ let closed=false,alpha=0;
  return {lower,upper,textures,
-  setState(state){if(closed!==state.closed){closed=state.closed;lower.visible=upper.visible=closed;return true;}return false;},
-  snapshot(){return {finishedExterior:closed,lowerVisible:lower.visible,upperVisible:upper.visible,originalProceduralMaps:textures.length};},
+  setState(state){
+   const next=Math.max(0,Math.min(1,state.alpha??(state.closed?1:0))),visible=next>.002;
+   const shadowChanged=(alpha>.98)!==(next>.98)||lower.visible!==visible;
+   if(alpha!==next||lower.visible!==visible){alpha=next;closed=next>.998;lower.visible=upper.visible=visible;
+    for(const f of facadeMaterials){f.material.opacity=f.opacity*next;f.material.transparent=f.transparent||next<.998;f.material.depthWrite=f.depthWrite&&next>.98;f.mesh.castShadow=f.shadow&&next>.98;}
+   }
+   return shadowChanged;
+  },
+  snapshot(){return {finishedExterior:closed,envelopeAlpha:alpha,lowerVisible:lower.visible,upperVisible:upper.visible,originalProceduralMaps:textures.length};},
   dispose(){for(const t of textures)t.dispose();for(const m of materials)m.dispose();for(const g of geometry)g.dispose();}
  };
 }

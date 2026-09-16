@@ -1,4 +1,5 @@
 import {orbitFrame,entryProgress} from './spatial-math.js';
+import {exteriorOrbitFrame} from './architecture-state.js';
 /** Same house, renderer and planner as the narrative page. No flat-image substitution. */
 const $=s=>document.querySelector(s);
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -17,11 +18,11 @@ async function initialize(){
  function stopOrbit(){automatic=false;cancelAnimationFrame(raf);$('#orbitToggle').textContent='回転する';$('#orbitToggle').setAttribute('aria-pressed','false');}
  function frame(t){
   if(!automatic||world.mode!=='explore'||document.hidden){if(document.hidden)raf=requestAnimationFrame(frame);else stopOrbit();return;}
-  if(!world.roomTransition){const pose=orbitFrame(t-orbitStart,world.mobile);world.camera.position.set(...pose.position);world.controls.target.set(...pose.target);world.look.copy(world.controls.target);world.camera.lookAt(world.look);world.dirty=true;}
+  if(!world.roomTransition){const pose=world.roomId==='outside'?exteriorOrbitFrame(t-orbitStart,world.mobile):orbitFrame(t-orbitStart,world.mobile);world.camera.position.set(...pose.position);world.controls.target.set(...pose.target);world.look.copy(world.controls.target);world.camera.lookAt(world.look);world.dirty=true;}
   raf=requestAnimationFrame(frame);
  }
- function startOrbit(){stopIntro();app.stopPlay();if(world.mode!=='explore')enter(false);app.selectRoom('all');world.roomTransition=null;world.setFloor('all');automatic=true;orbitStart=performance.now();$('#orbitToggle').textContent='回転を止める';$('#orbitToggle').setAttribute('aria-pressed','true');raf=requestAnimationFrame(frame);}
- function enter(rotate=true){stopIntro();app.stopPlay();immersive=true;document.body.classList.add('spatial-first');app.setMode('explore');tools.hidden=false;hint.hidden=false;world.spatialComposition=true;world.resize();if(rotate&&!reduced)startOrbit();}
+ function startOrbit(){stopIntro();app.stopPlay();if(world.mode!=='explore')enter(false);app.selectRoom(world.roomId==='outside'?'outside':'all');world.roomTransition=null;world.setFloor('all');automatic=true;orbitStart=performance.now();$('#orbitToggle').textContent='回転を止める';$('#orbitToggle').setAttribute('aria-pressed','true');raf=requestAnimationFrame(frame);}
+ function enter(rotate=true){stopIntro();app.stopPlay();immersive=true;document.body.classList.add('spatial-first');app.setMode('explore');tools.hidden=false;hint.hidden=false;world.spatialComposition=true;app.selectRoom('outside');world.resize();if(rotate&&!reduced)startOrbit();}
  function exit(play=false){stopIntro();stopOrbit();immersive=false;document.body.classList.remove('spatial-first');tools.hidden=true;hint.hidden=true;world.spatialComposition=false;app.setMode('story',false);world.resize();app.seek(0,true);if(play)app.startPlay();}
  $('#enterSpatial').onclick=()=>enter();$('#orbitToggle').onclick=()=>automatic?stopOrbit():startOrbit();$('#spatialExit').onclick=()=>exit();$('#spatialDay').onclick=()=>exit(true);
  $('#spatialFullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else if(stage.requestFullscreen)await stage.requestFullscreen();}catch{hint.textContent='このブラウザでは全画面に切り替えられません。';}};

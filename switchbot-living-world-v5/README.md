@@ -1,4 +1,4 @@
-# SwitchBot Living World 5.1
+# SwitchBot Living World 5.2
 
 Japanese two-floor home with the existing four life-moment scenes, same-house room exploration, and scenario planner.
 
@@ -40,3 +40,11 @@ The test workflow captures the actual WebGL output, checks the view transition, 
 An architectural illustration, not construction drawings or product CAD. No live pricing, payment or unified checkout is implemented. `netlify.toml` contains deployment configuration; a successful local build does not prove a public deployment. Verify the actual public domain and runtime before declaring publication. Never place credentials in source, logs or distributable packages.
 
 Three.js is redistributed with its MIT license. All newly added geometry and procedural surface maps are original.
+
+## V5.2 completion pass
+
+The first and last story views show the finished facade. Scroll reveals the same underlying rooms before the morning scene. The facade is a pure reversible function of scroll position, not a new house. No product claims or automation rules changed.
+
+The direct 3D entry opens the exterior; auto-rotation preserves it instead of jumping to the cutaway. Local file pages export a shareable plan file, never a broken null-origin URL. Desktop and portrait remain independently composed.
+
+Public hosting is separate from browser acceptance. Deployment uses only an existing standard NETLIFY_AUTH_TOKEN repository secret, never credentials or temporary proxy authorizations stored in repository files. No payment or unified checkout is implemented.
