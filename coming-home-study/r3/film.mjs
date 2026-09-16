@@ -12,7 +12,7 @@ const states=[];
 try{for(let i=0;i<frames;i++){
  const t=24*i/(frames-1);const frame=await page.evaluate(t=>{const state=window.seek(t);return {state,image:stage.canvas.toDataURL('image/jpeg',.90)}},t);
  states.push(frame.state);if(frame.state.proof.contact>.999)assert.ok(frame.state.proof.handError<.001,'Hand lost contact at '+t);
- if(t>=6.85&&t<9.30){assert.equal(frame.state.shot,'inside-lock');assert.equal(frame.state.proof.doorAngle,0);}
+ if(t>=6.85&&t<9.30){assert.equal(frame.state.shot,'inside-lock');assert.equal(Math.abs(frame.state.proof.doorAngle),0);}
  fs.writeFileSync(`${out}/frames/${String(i).padStart(4,'0')}.jpg`,Buffer.from(frame.image.split(',')[1],'base64'));
  if(i%64===0)console.log(view,i,'/',frames);
 }}finally{await browser.close();}
