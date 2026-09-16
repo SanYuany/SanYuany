@@ -1,0 +1,116 @@
+name: Deliver verified SwitchBot 5.2.1
+on:
+  push:
+    branches: [switchbot-living-world-v52-release]
+    paths: ['.github/workflows/switchbot-v521-deliver-verified.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: switchbot-v521-deliver-verified
+  cancel-in-progress: false
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d415a52ca57aaa005df094b6dbbda9d431447d01
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test exact source and build
+        working-directory: switchbot-living-world-v5
+        run: |
+          mkdir -p evidence/shipping
+          set -o pipefail
+          npm test | tee evidence/shipping/unit-tests.txt
+          npm run check
+          npm run build
+          npm run portable
+      - name: Install browser
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Browser interaction and offline verification
+        env:
+          BASE_URL: http://127.0.0.1:4198/
+        run: |
+          python3 -m http.server 4198 --directory switchbot-living-world-v5/dist >/tmp/sb-shipping-http.log 2>&1 &
+          sleep 2
+          node switchbot-living-world-v5/tests/v52-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-521-shipping-browser
+          path: switchbot-living-world-v5/evidence/
+          if-no-files-found: error
+          retention-days: 30
+  film:
+    strategy:
+      fail-fast: false
+      matrix:
+        view: [desktop, mobile]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d415a52ca57aaa005df094b6dbbda9d431447d01
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare renderer and encoding tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          cd switchbot-living-world-v5
+          npm run build
+      - name: Render same-house continuous journey without redundant scroll repaints
+        env:
+          FILM_VIEW: ${{ matrix.view }}
+        run: |
+          python3 -m http.server 4198 --directory switchbot-living-world-v5/dist >/tmp/sb-film-http.log 2>&1 &
+          sleep 2
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';
+          import fs from 'node:fs';
+          import {spawnSync} from 'node:child_process';
+          import assert from 'node:assert/strict';
+          const label=process.env.FILM_VIEW,mobile=label==='mobile',width=mobile?450:960,height=mobile?900:600;
+          const out='delivery-output/'+label,frames=out+'/frames';fs.mkdirSync(frames,{recursive:true});
+          const report={version:'5.2.1',sourceCommit:'d415a52ca57aaa005df094b6dbbda9d431447d01',view:label,width,height,frameCount:192,fps:12,durationSeconds:16,kind:'Sequential renders from the actual browser 3D scene; not a realtime performance benchmark',errors:[],checkpoints:[]};
+          const b=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-dev-shm-usage']});
+          const page=await b.newPage({viewport:{width,height},deviceScaleFactor:1});page.on('pageerror',e=>report.errors.push(e.message));
+          try{
+            await page.goto('http://127.0.0.1:4198/',{waitUntil:'domcontentloaded'});
+            await page.waitForFunction(()=>window.__spatial?.ready&&window.__cinematic?.ready&&window.__livingWorld.frames>0,null,{timeout:60000});
+            await page.evaluate(()=>{window.__spatial.stopIntro();window.__spatial.stopOrbit();window.__app.stopPlay();window.__app.setMode('story',false);window.__livingWorld.active=false;});
+            for(let i=0;i<192;i++){
+              const result=await page.evaluate(p=>{const w=window.__livingWorld;w.active=false;w.renderAt(p);return{jpeg:w.canvas.toDataURL('image/jpeg',.9).split(',')[1],snapshot:w.snapshot()};},i/191);
+              assert.ok(result.snapshot.triangles>5000&&!result.snapshot.contextLost);
+              fs.writeFileSync(frames+'/'+String(i).padStart(4,'0')+'.jpg',Buffer.from(result.jpeg,'base64'));
+              if(i%32===0||i===191){report.checkpoints.push({frame:i,snapshot:result.snapshot});console.log(label,i+1,'/192');}
+            }
+            assert.deepEqual(report.errors,[]);
+            const video=out+'/SwitchBot-Living-World-5.2.1-'+label+'.mp4';
+            let r=spawnSync('ffmpeg',['-y','-framerate','12','-i',frames+'/%04d.jpg','-c:v','libx264','-crf','19','-pix_fmt','yuv420p','-movflags','+faststart',video],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+            r=spawnSync('ffmpeg',['-v','error','-i',video,'-f','null','-'],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+            report.status='PASS';report.decode='PASS';
+            fs.copyFileSync(frames+'/0000.jpg',out+'/overview.jpg');fs.copyFileSync(frames+'/0042.jpg',out+'/morning.jpg');fs.copyFileSync(frames+'/0136.jpg',out+'/living.jpg');
+            fs.rmSync(frames,{recursive:true});
+          }catch(e){report.status='FAIL';report.failure=e.stack;process.exitCode=1;}finally{fs.writeFileSync(out+'/manifest.json',JSON.stringify(report,null,2));await b.close();}
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-521-shipping-film-${{ matrix.view }}
+          path: delivery-output/${{ matrix.view }}/
+          if-no-files-found: error
+          retention-days: 30
