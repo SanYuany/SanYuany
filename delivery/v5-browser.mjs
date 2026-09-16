@@ -36,7 +36,9 @@ try{
  const plan=await page.evaluate(()=>window.__currentPlan);check('Plan counts split curtains and deducts owned devices once',plan.products.find(x=>x.id==='curtain').toBuy===3&&plan.products.find(x=>x.id==='hub').toBuy===0);
  await page.locator('#build').scrollIntoViewIfNeeded();await shot('09-desktop-plan');
  const [download]=await Promise.all([page.waitForEvent('download',{timeout:30000}),page.locator('#exportPlan').click()]);await download.saveAs(path.join(out,'example-plan.html'));check('Plan export produces a usable file',fs.statSync(path.join(out,'example-plan.html')).size>2000);
- await page.locator('#homeLink').click();await go(.1);await page.locator('#playToggle').click();await page.waitForTimeout(2400);await page.locator('#playToggle').click();check('Autoplay advances in the live browser',(await page.evaluate(()=>window.__livingWorld.progress))>.12);
+ await page.locator('#homeLink').click();await go(.1);await page.locator('#playToggle').click();
+ await page.waitForFunction(()=>window.__livingWorld.progress>.12&&window.__livingWorld.targetProgress>.12,null,{timeout:30000,polling:100});
+ report.autoplay=await page.evaluate(()=>window.__livingWorld.snapshot());await page.locator('#playToggle').click();check('Autoplay advances in the live browser',report.autoplay.progress>.12);
  await page.setViewportSize({width:390,height:844});
  for(const [name,p] of [['10-mobile-overview',0],['11-mobile-morning',.22],['12-mobile-living',.71],['13-mobile-night',.993]]){await go(p);await shot(name);}
  check('Portrait layout has no horizontal overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));check('Portrait maintains a live WebGL context',!(await page.evaluate(()=>window.__livingWorld.snapshot().contextLost)));
