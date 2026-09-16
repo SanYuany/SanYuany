@@ -1,0 +1,93 @@
+diff --git a/docs/CONTINUATION.md b/docs/CONTINUATION.md
+index 15c21f9..3b359fd 100644
+--- a/docs/CONTINUATION.md
++++ b/docs/CONTINUATION.md
+@@ -8,3 +8,6 @@ Builds on verified 4d88252 V5.1 source. Does not change the approved four chapte
+ - New deterministic regression tests verify elapsed-time interpolation, interruption/reversal, and reduced-motion isolation.
+ 
+ This remains a stylized architectural concept, not CAD-accurate product geometry or the original AI-video-chain Scroll World pipeline. Public deployment is a separate gate, never implied by archive delivery.
++
++## Visual regression correction
++The complete mobile exterior preset was being clamped to the old 37-unit orbit maximum. Preset-aligned orbit limits and fog now preserve the full property in portrait. Breakpoint changes reframe the exterior. Architecture controls sit below the product/fullscreen toolbar rather than overlapping it.
+diff --git a/src/architecture-state.js b/src/architecture-state.js
+index d3d451e..65a969c 100644
+--- a/src/architecture-state.js
++++ b/src/architecture-state.js
+@@ -21,3 +21,9 @@ export function envelopeAt(from,to,elapsed,reducedMotion=false,duration=1200){
+  const t=clamp(elapsed/duration),e=t*t*(3-2*t);
+  return a+(b-a)*e;
+ }
++
++/** Camera presets and orbit limits must agree; otherwise portrait is silently zoomed in. */
++export function exteriorNavigation(mobile=false){
++ const frame=exteriorCamera(mobile),d=Math.hypot(...frame.position.map((v,i)=>v-frame.target[i]));
++ return {maxDistance:Math.max(37,d*1.15),fogNear:Math.max(42,d+16),fogFar:Math.max(94,d+68)};
++}
+diff --git a/src/cinematic.css b/src/cinematic.css
+index 9c1ed0d..c844677 100644
+--- a/src/cinematic.css
++++ b/src/cinematic.css
+@@ -13,7 +13,7 @@
+ 
+ /* Same-house architectural reveal. Controls never steal the mobile scroll region. */
+ .exterior-entry{display:block;appearance:none;background:transparent;border:0;border-bottom:1px solid #b0aea1;color:#33483d;font:inherit;font-size:13px;padding:10px 0;margin-top:12px;cursor:pointer;}
+-.envelope-control{position:absolute;z-index:8;right:40px;top:142px;display:flex;flex-direction:column;align-items:flex-end;gap:9px;}
++.envelope-control{position:absolute;z-index:8;right:40px;top:183px;display:flex;flex-direction:column;align-items:flex-end;gap:9px;}
+ .envelope-caption{font-size:10px;letter-spacing:.1em;color:#52645b;}
+ .envelope-control>div{display:flex;border:1px solid #d4d2c6;border-radius:30px;padding:4px;background:rgba(251,250,243,.94);box-shadow:0 6px 25px #313a3510;}
+ .envelope-control button{padding:9px 17px;min-height:38px;border:0;border-radius:24px;background:transparent;color:#34443b;font:inherit;font-size:12px;cursor:pointer;}
+@@ -23,4 +23,7 @@
+ .room-hotspot{position:absolute;top:0;left:0;pointer-events:auto;padding:11px 13px;min-height:42px;white-space:nowrap;border:1px solid #e0e0d4;border-radius:9px;color:#263c30;background:rgba(253,252,245,.96);font:inherit;font-size:12px;cursor:pointer;box-shadow:0 4px 16px #18342218;}
+ .room-hotspot small{color:#8a938d;font-size:9px;margin-right:8px;}.room-hotspot span{margin-left:8px;color:#bd4034;}
+ .room-hotspot:focus-visible,.envelope-control button:focus-visible,.exterior-entry:focus-visible{outline:3px solid #b8563d;outline-offset:3px;}
+-@media(max-width:759px){.envelope-control{right:14px;top:142px;gap:5px;}.envelope-control button{font-size:11px;min-height:38px;padding:8px 13px;}.envelope-caption{font-size:9px;}.room-hotspot{font-size:11px;padding:9px 10px;min-height:42px;}.exterior-entry{font-size:12px;}}
++@media(max-width:759px){.envelope-control{right:14px;top:158px;gap:5px;}.envelope-control button{font-size:11px;min-height:38px;padding:8px 13px;}.envelope-caption{display:none;}.room-hotspot{font-size:11px;padding:9px 10px;min-height:42px;}.exterior-entry{font-size:12px;}}
++
++.spatial-first .envelope-control{top:244px;}
++@media(max-width:759px){.spatial-first .envelope-control{top:231px;}}
+diff --git a/src/refined-world.js b/src/refined-world.js
+index 6c854d3..c4e198d 100644
+--- a/src/refined-world.js
++++ b/src/refined-world.js
+@@ -1,6 +1,6 @@
+ import {LivingWorld as BaseWorld} from './world.js';
+ import {finishArchitecture} from './architectural-finish.js';
+-import {resolveEnvelope,exteriorCamera,envelopeAt} from './architecture-state.js';
++import {resolveEnvelope,exteriorCamera,envelopeAt,exteriorNavigation} from './architecture-state.js';
+ /** Same house and renderer for exterior, cutaway, and room cameras. */
+ export class LivingWorld extends BaseWorld {
+  constructor(canvas,options){
+@@ -10,16 +10,16 @@ export class LivingWorld extends BaseWorld {
+   this.stateSignature='';this.dirty=true;this.renderer.shadowMap.needsUpdate=true;
+  }
+  frameExterior(){
+-  if(this.mode==='explore'&&this.roomId==='outside'&&this.width){const p=exteriorCamera(this.mobile);this.camera.setViewOffset(this.width,this.height,this.width*p.offset[0],this.height*p.offset[1],this.width,this.height);}
++  if(this.mode==='explore'&&this.roomId==='outside'&&this.width){const p=exteriorCamera(this.mobile),n=exteriorNavigation(this.mobile);this.controls.maxDistance=n.maxDistance;this.scene.fog.near=n.fogNear;this.scene.fog.far=n.fogFar;this.camera.setViewOffset(this.width,this.height,this.width*p.offset[0],this.height*p.offset[1],this.width,this.height);}
+  }
+- resize(){super.resize();this.frameExterior();}
++ resize(){const wasMobile=this.mobile;super.resize();if(this.controls&&this.mode==='explore'&&this.roomId==='outside'&&wasMobile!==this.mobile)this.setRoom('outside');this.frameExterior();}
+  setRoom(id){
+-  this.roomId=id;this.envelopeOverride=null;super.setRoom(id);this.stateSignature='';this.projectionShift=NaN;
++  this.roomId=id;this.envelopeOverride=null;if(id!=='outside'){this.controls.maxDistance=37;this.scene.fog.near=42;this.scene.fog.far=94;}super.setRoom(id);this.stateSignature='';this.projectionShift=NaN;
+   if(id==='outside'){
+    const p=exteriorCamera(this.mobile);this.roomTransition.to.set(...p.position);this.roomTransition.toTarget.set(...p.target);this.frameExterior();
+   }else{this.camera.clearViewOffset();this.camera.updateProjectionMatrix();}
+  }
+- setMode(mode){super.setMode(mode);this.envelopeOverride=null;this.projectionShift=NaN;if(mode==='story')this.roomId='all';}
++ setMode(mode){if(mode==='story'){this.scene.fog.near=42;this.scene.fog.far=94;}super.setMode(mode);this.envelopeOverride=null;this.projectionShift=NaN;if(mode==='story')this.roomId='all';}
+  setFloor(value){super.setFloor(value);this.stateSignature='';if(value!=='all')this.envelopeOverride=null;}
+  setEnvelopeView(closed){
+   if(this.mode!=='explore'||!['all','outside'].includes(this.roomId)||this.floor!=='all')return false;
+diff --git a/tests/exterior-orbit-limit.test.js b/tests/exterior-orbit-limit.test.js
+new file mode 100644
+index 0000000..46cbda8
+--- /dev/null
++++ b/tests/exterior-orbit-limit.test.js
+@@ -0,0 +1,7 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import * as A from '../src/architecture-state.js';
++test('exterior orbit limits preserve the full portrait camera distance instead of clamping to 37',()=>{
++ assert.equal(typeof A.exteriorNavigation,'function');
++ for(const mobile of [false,true]){const p=A.exteriorCamera(mobile);const d=Math.hypot(...p.position.map((v,i)=>v-p.target[i]));const n=A.exteriorNavigation(mobile);assert.ok(n.maxDistance>d);assert.ok(n.fogNear>d+10);assert.ok(n.fogFar>n.fogNear);}
++});
