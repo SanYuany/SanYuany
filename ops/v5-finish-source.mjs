@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const root=path.resolve('switchbot-living-world-v5');
+const p=f=>path.join(root,f);
+const pkg=JSON.parse(fs.readFileSync(p('package.json'),'utf8'));pkg.version='5.0.1';pkg.scripts.film='node scripts/film.mjs';
+fs.writeFileSync(p('package.json'),JSON.stringify(pkg,null,2)+'\n');
+let source=fs.readFileSync(p('scripts/build.mjs'),'utf8');
+source=source.replace(/version:'(?:4\.1\.0|5\.0\.0)'/,"version:JSON.parse(readFileSync('package.json','utf8')).version");
+assert.ok(source.includes("version:JSON.parse(readFileSync('package.json','utf8')).version"));
+fs.writeFileSync(p('scripts/build.mjs'),source);
+let test=fs.readFileSync(p('tests/build.test.js'),'utf8');
+if(!test.includes('release identity must match'))test=test.replace("assert.match(receipt.files['src/world.js']","assert.equal(receipt.version,JSON.parse(readFileSync(path.join(dir,'package.json'),'utf8')).version,'release identity must match package version');assert.match(receipt.files['src/world.js']");
+fs.writeFileSync(p('tests/build.test.js'),test);
+fs.copyFileSync('ops/v5-film.mjs',p('scripts/film.mjs'));
+fs.copyFileSync('ops/v5-online-check.mjs',p('tests/online-check.mjs'));
+fs.writeFileSync(p('README.md'),`# SwitchBot Living World V5\n\nJapanese detached-house scenario experience. SwitchBot only. Four chapters: Morning, Leaving, Coming Home, Good Night.\n\n## Run\n\nNode 22: npm test; npm run check; npm run build; npm run preview.\nFor a portable offline HTML: npm run portable (Python 3).\n\n## Actual implementation\n\nSelf-hosted Three.js, real perspective geometry, continuous reversible camera path, independently composed portrait path, same-house exploration, locally saved/deduplicated product plans and HTML export. No external render dependencies.\n\n## Film\n\nInstall Playwright and Chromium, and FFmpeg with libx264, then run npm run film while the HTTP preview is running. The script validates the encoder BEFORE frame capture and keeps recoverable frames on failures. Films are deterministic renders from this website, NOT a frame-rate benchmark, and NOT the original Scroll World AI-video chain.\n\n## Deploy\n\nNetlify: build command npm run check && npm test && npm run build; publish directory dist. Existing authorized site: switchbot-living-world. Browser smoke checks must target the production URL as well as local HTTP. Offline and static distributions are separate artifacts.\n\n## Scope and disclosure\n\nThese are simplified procedural 3D illustrations, not CAD-accurate SwitchBot products or an officially approved brand campaign. Prices, checkout and live hardware control are not implemented. Official product links and compatibility conditions are provided in the scene solutions and docs. No third-party influencer media is redistributed.\n\n## Maintenance\n\n- src/timeline.js: camera and device states\n- src/house.js and src/living-details.js: scene geometry\n- src/world.js: renderer, controls and state application\n- src/data.js and docs/FACT_REGISTRY.json: product/claim data\n- src/planner.js and src/export.js: solution quantities and export\n- scripts/: builds, local server, portable bundler and video capture\n- tests/: domain, build, browser and production checks\n\nRelease source recovered from workflow 35065908896 / artifact 10435070540, then corrected to manifest version 5.0.1. Static tests do not substitute for visual acceptance.\n`);
+console.log('V5 source corrected and reproducible scripts installed.');
