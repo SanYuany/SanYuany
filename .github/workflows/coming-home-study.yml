@@ -1,0 +1,65 @@
+name: Coming Home scene review
+on:
+  push:
+    branches: [switchbot-coming-home-study]
+    paths: ['coming-home-study/**', '.github/workflows/coming-home-study.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: coming-home-study
+  cancel-in-progress: true
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Restore the same canonical house
+        run: |
+          cp -r switchbot-living-world-v5/vendor coming-home-study/
+          mkdir -p coming-home-study/src coming-home-study/evidence coming-home-study/media
+          cp switchbot-living-world-v5/src/{house.js,living-details.js,optimize.js,architectural-finish.js,architecture-state.js} coming-home-study/src/
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('coming-home-study/src/house.js');s=p.read_text();assert 'compactHouse(refs);return refs;' in s;p.write_text(s.replace('compactHouse(refs);return refs;','return refs;'))
+          Path('coming-home-study/render.html').write_text('''<!doctype html><html><meta charset="utf-8"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}canvas{display:block;width:100%;height:100%}</style><script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script><canvas id="c"></canvas><script type="module">import {ComingHomeStage} from './stage.js';window.stage=new ComingHomeStage(document.getElementById('c'));window.seek=t=>stage.seek(t);window.addEventListener('resize',()=>{stage.resize();stage.seek(stage.state.t)});</script></html>''')
+          PY
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Capture actual camera views and products
+        run: |
+          python3 -m http.server 4188 --directory coming-home-study >/tmp/coming-home-http.log 2>&1 &
+          sleep 2
+          cat > scene-review.mjs <<'JS'
+          import {chromium} from 'playwright';import fs from 'node:fs';
+          const b=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
+          const page=await b.newPage({viewport:{width:960,height:600},deviceScaleFactor:1});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+          await page.goto('http://127.0.0.1:4188/render.html');await page.waitForFunction(()=>window.stage?.canvas.dataset.ready==='true',{timeout:60000});
+          const cdp=await page.context().newCDPSession(page),states=[];
+          async function shot(name){const r=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync('coming-home-study/evidence/'+name+'.png',Buffer.from(r.data,'base64'));}
+          for(const [i,t] of [0,3.8,7.8,10.7,12.5,14.5,17.8,20,23.7].entries()){states.push(await page.evaluate(t=>seek(t),t));await shot('desktop-'+i+'-'+t);}
+          for(const id of ['keypad','lock','hub']){await page.evaluate(id=>stage.productView(id),id);await shot('product-'+id);}
+          await page.setViewportSize({width:450,height:900});await page.evaluate(()=>stage.resize());
+          for(const t of [0,7.8,12.5,17.8,23.7]){await page.evaluate(t=>seek(t),t);await shot('mobile-'+t);}
+          fs.writeFileSync('coming-home-study/evidence/report.json',JSON.stringify({errors,states},null,2));await b.close();if(errors.length)process.exit(1);
+          JS
+          node scene-review.mjs
+      - name: Fetch official reference-only packshots for the internal review
+        run: |
+          python3 - <<'PY'
+          import urllib.request
+          from pathlib import Path
+          urls={'lock':'https://www.switchbot.jp/cdn/shop/files/59_2x_070b4f90-1856-4257-8850-9535863d628d_700x700.webp?v=1745576039','keypad':'https://www.switchbot.jp/cdn/shop/files/Keypad_vision_JP_Amazon_Images_1600x1600__2x_1_700x700.webp?v=1757581073','hub':'https://www.switchbot.jp/cdn/shop/files/Hub_3_JP_1600x1600_02_1x_f13df486-6ca8-4398-8f4f-7e9636bfc49f_700x700.webp?v=1760694016'}
+          for name,url in urls.items():
+            try: urllib.request.urlretrieve(url,'coming-home-study/media/'+name+'.webp')
+            except Exception as e: print(name,'reference image unavailable:',e)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coming-home-scene-review
+          path: coming-home-study/
+          retention-days: 14
