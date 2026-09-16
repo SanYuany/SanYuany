@@ -1,0 +1,88 @@
+name: Verify SwitchBot local file opener
+on:
+  push:
+    branches: [switchbot-living-world-v52-release]
+    paths: ['.github/workflows/switchbot-local-opener.yml', 'delivery/portable-open-fix.cjs']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-local-open:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build a self-contained classic-script opener
+        run: |
+          npm install --no-save typescript@5.8.3 playwright@1.55.0
+          cd switchbot-living-world-v5
+          npm test
+          npm run portable
+          git rev-parse HEAD > SOURCE_COMMIT.txt
+          cd ..
+          mkdir -p opener-evidence
+          node delivery/portable-open-fix.cjs switchbot-living-world-v5 opener-evidence/SwitchBot-Open.html
+      - name: Install Chromium test runtime
+        run: npx playwright install --with-deps chromium
+      - name: Test actual file opening offline and readable failure states
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import {pathToFileURL} from 'node:url';
+          import assert from 'node:assert/strict';
+          const dir='opener-evidence',file=path.resolve(dir,'SwitchBot-Open.html'),url=pathToFileURL(file).href;
+          const report={edition:'5.2.1-open-fix',testedAt:new Date().toISOString(),environment:'GitHub Ubuntu Chromium; software WebGL; actual file://; browser offline',checks:[],errors:[],requests:[]};
+          const ok=(name,condition)=>{assert.ok(condition,name);report.checks.push({name,status:'PASS'});console.log('PASS',name);};
+          const source=fs.readFileSync(file,'utf8');
+          const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+          async function shot(p,name){const c=await p.context().newCDPSession(p);const i=await c.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(path.join(dir,name+'.png'),Buffer.from(i.data,'base64'));await c.detach();}
+          try {
+            ok('No import maps, module scripts, or data JavaScript modules',!/<script[^>]*type=["'](?:module|importmap)["']|data:text\/javascript/i.test(source));
+            const ctx=await browser.newContext({offline:true,acceptDownloads:true,viewport:{width:1100,height:760}});
+            const p=await ctx.newPage();p.on('pageerror',e=>report.errors.push(e.message));p.on('request',q=>{if(/^https?:/.test(q.url()))report.requests.push(q.url());});
+            await p.goto(url,{waitUntil:'domcontentloaded',timeout:60000});
+            await p.waitForFunction(()=>window.__SB_LAUNCH?.status.state==='ready'&&window.__spatial?.ready&&window.__livingWorld.frames>0,null,{timeout:60000});
+            ok('Actual offline file:// opens and renders the same 3D house',await p.evaluate(()=>window.__livingWorld.snapshot().triangles>5000));
+            await p.evaluate(()=>{window.__spatial.stopIntro();window.__app.stopPlay();window.__app.seek(0,true);window.__livingWorld.renderAt(0);});
+            await shot(p,'desktop-file-open');
+            const morning=await p.evaluate(()=>{window.__app.seek(.22,true);window.__livingWorld.renderAt(.22);return window.__livingWorld.snapshot();});
+            const night=await p.evaluate(()=>{window.__app.seek(1,true);window.__livingWorld.renderAt(1);return window.__livingWorld.snapshot();});
+            ok('Camera and curtain really change, not only the interface',morning.state.curtain>.9&&night.state.curtain===0&&JSON.stringify(morning.camera)!==JSON.stringify(night.camera));
+            await p.locator('#planNav').click();await p.locator('#windowCount').selectOption('2');await p.locator('[data-owned="curtain"]').fill('1');
+            ok('Planner deducts owned devices',await p.evaluate(()=>window.__currentPlan.products.find(x=>x.id==='curtain').toBuy===3));
+            const download=p.waitForEvent('download',{timeout:45000});await p.locator('#exportPlan').click();const d=await download;await d.saveAs(path.join(dir,'saved-plan.html'));
+            ok('Local file exports a usable plan',fs.statSync(path.join(dir,'saved-plan.html')).size>1000);
+            await p.goto(url+'#sb-lite',{waitUntil:'domcontentloaded'});await p.waitForFunction(()=>window.__SB_LAUNCH?.status.state==='ready',null,{timeout:60000});
+            ok('Low-load mode still renders real 3D, with reduced shadows/reflection',await p.evaluate(()=>window.__livingWorld.lightweight&&window.__livingWorld.renderer.shadowMap.enabled===false&&window.__livingWorld.envTarget===null));
+            await p.setViewportSize({width:390,height:844});await p.evaluate(()=>{window.__spatial?.stopIntro();window.__app.seek(0,true);window.__livingWorld.renderAt(0);});await p.waitForTimeout(500);await shot(p,'portrait-lite-open');
+            ok('Portrait has no horizontal overflow',await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+            ok('Opening and using the file needs zero external runtime requests',report.requests.length===0);
+            ok('Working-mode page has no uncaught JavaScript errors',report.errors.length===0);
+            await ctx.close();
+            const noGPU=await browser.newContext({offline:true,acceptDownloads:true,viewport:{width:1100,height:760}});
+            await noGPU.addInitScript(()=>{const native=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...rest){if(/webgl/i.test(type))return null;return native.call(this,type,...rest);};});
+            const np=await noGPU.newPage();await np.goto(url,{waitUntil:'domcontentloaded'});await np.waitForSelector('#launch-help:not([hidden])',{timeout:10000});
+            ok('Unavailable WebGL produces an immediate visible diagnosis, not an endless spinner',await np.evaluate(()=>window.__SB_LAUNCH.status.code==='WEBGL2_UNAVAILABLE'&&document.querySelector('#loading').hidden));
+            await shot(np,'webgl-unavailable-diagnostic');
+            const diagnostic=np.waitForEvent('download');await np.locator('#launch-save').click();const dd=await diagnostic;await dd.saveAs(path.join(dir,'example-diagnostic.json'));
+            ok('User can save the diagnostic without developer tools',JSON.parse(fs.readFileSync(path.join(dir,'example-diagnostic.json'))).code==='WEBGL2_UNAVAILABLE');
+            await noGPU.close();
+            const noJS=await browser.newContext({javaScriptEnabled:false,offline:true});const jp=await noJS.newPage();await jp.goto(url);ok('JavaScript-disabled preview gets opening instructions',await jp.locator('.noscript').isVisible());await noJS.close();
+            report.status='PASS';
+          } catch(e){report.status='FAIL';report.failure=e.stack;console.error(e);process.exitCode=1;}
+          finally{fs.writeFileSync(path.join(dir,'browser-report.json'),JSON.stringify(report,null,2));await browser.close();}
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-local-opener-verified
+          path: opener-evidence/
+          retention-days: 14
+          if-no-files-found: error
