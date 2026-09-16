@@ -21,6 +21,7 @@ try{
  const id=await page.evaluate(()=>window.__livingWorld.house.root.uuid);
  await page.locator('#viewExterior').click();await page.waitForFunction(()=>!window.__livingWorld.roomTransition&&window.__livingWorld.envelopeAmount===1);
  check('Exterior-first CTA loads the same live 3D house',await page.evaluate(id=>window.__livingWorld.house.root.uuid===id&&window.__livingWorld.snapshot().triangles>5000,id));
+ check('Architecture controls do not overlap the product toolbar',await page.evaluate(()=>{const a=document.querySelector('#envelopeControl').getBoundingClientRect(),b=document.querySelector('.world-toolbar').getBoundingClientRect();return a.top>=b.bottom+4||a.right<=b.left||b.right<=a.left;}));
  await shot('02-desktop-exterior');
  const pose=await page.evaluate(()=>window.__livingWorld.camera.position.toArray());
  const material=await page.evaluate(()=>({oak:window.__livingWorld.house.materials.oak.opacity,linen:window.__livingWorld.house.materials.cream.opacity}));
@@ -43,7 +44,9 @@ try{
  await page.locator('#planNav').click();await page.locator('#windowCount').selectOption('2');await page.locator('[data-owned="curtain"]').fill('1');
  check('Planner subtracts owned products and retains quantities',await page.evaluate(()=>window.__currentPlan.products.find(x=>x.id==='curtain').toBuy===3));
  const downloadPromise=page.waitForEvent('download');await page.locator('#exportPlan').click();const file=await downloadPromise;await file.saveAs(path.join(out,'Example-SwitchBot-Plan.html'));check('Plan export produces a real file',fs.statSync(path.join(out,'Example-SwitchBot-Plan.html')).size>2000);
- await page.setViewportSize({width:390,height:844});await outside();await shot('07-mobile-exterior');await page.locator('#openEnvelope').click();await page.waitForFunction(()=>window.__livingWorld.envelopeAmount===0);await shot('08-mobile-cutaway');
+ await page.setViewportSize({width:390,height:844});await outside();check('Portrait property fits inside the live viewport after OrbitControls updates',await page.evaluate(()=>{const w=window.__livingWorld;w.camera.updateMatrixWorld();for(const x of [-8.15,9.35])for(const y of [-.7,7.3])for(const z of [-7.1,7.5]){const p=w.camera.position.clone().set(x,y,z).project(w.camera),sx=(p.x+1)/2,sy=(1-p.y)/2;if(sx<.01||sx>.99||sy<.09||sy>.57)return false;}return true;}));
+ check('Architecture controls do not overlap the product toolbar',await page.evaluate(()=>{const a=document.querySelector('#envelopeControl').getBoundingClientRect(),b=document.querySelector('.world-toolbar').getBoundingClientRect();return a.top>=b.bottom+4||a.right<=b.left||b.right<=a.left;}));
+ await shot('07-mobile-exterior');await page.locator('#openEnvelope').click();await page.waitForFunction(()=>window.__livingWorld.envelopeAmount===0);await shot('08-mobile-cutaway');
  check('Portrait exterior and cutaway keep a live WebGL context',await page.evaluate(()=>!window.__livingWorld.renderer.getContext().isContextLost()));
  check('Portrait controls are tappable and there is no horizontal overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1&&document.querySelector('#openEnvelope').getBoundingClientRect().height>=38));
  await page.locator('[data-room="living"]').click();await page.waitForFunction(()=>!window.__livingWorld.roomTransition);await shot('09-mobile-living');
@@ -56,7 +59,7 @@ finally{fs.writeFileSync(path.join(out,'browser-report.json'),JSON.stringify(rep
 if(good){
  for(const [name,width,height,count] of [['desktop',1120,700,80],['mobile',390,844,64]]){
   await page.setViewportSize({width,height});await outside();
-  await page.evaluate(async()=>{window.__app.stopPlay();window.__spatial.stopOrbit();window.__livingWorld.active=false;window.__filmState=await import('./src/timeline.js');window.__filmStart=window.__livingWorld.camera.position.clone();window.__filmTarget=window.__livingWorld.controls.target.clone();});
+  await page.evaluate(async()=>{window.__app.stopPlay();window.__spatial.stopOrbit();window.__livingWorld.active=false;cancelAnimationFrame(window.__livingWorld.raf);window.__filmState=await import('./src/timeline.js');window.__filmStart=window.__livingWorld.camera.position.clone();window.__filmTarget=window.__livingWorld.controls.target.clone();});
   const frames=path.join(out,'frames-'+name);fs.mkdirSync(frames,{recursive:true});const c=await page.context().newCDPSession(page);
   try{
    for(let i=0;i<count;i++){
@@ -66,12 +69,12 @@ if(good){
      w.camera.position.copy(window.__filmStart);w.look.copy(window.__filmTarget);
      const dest=w.mobile?[3.5,5.7,5.7]:[3.6,5.03,3.15],target=[1.95,4.35,-1.6];
      const p=window.__filmStart.toArray(),a=window.__filmTarget.toArray();w.camera.position.set(...p.map((x,k)=>x+(dest[k]-x)*flight));w.look.set(...a.map((x,k)=>x+(target[k]-x)*flight));w.controls.target.copy(w.look);w.camera.lookAt(w.look);
-     if(flight>0){w.camera.clearViewOffset();w.camera.updateProjectionMatrix();}w.renderer.shadowMap.needsUpdate=true;w.renderer.render(w.scene,w.camera);w.onFrame(w);
+     w.camera.setViewOffset(w.width,w.height,w.width*(w.mobile?0:-.08)*(1-flight),w.height*(w.mobile?.18:0)*(1-flight),w.width,w.height);w.camera.updateProjectionMatrix();w.renderer.shadowMap.needsUpdate=true;w.renderer.render(w.scene,w.camera);w.onFrame(w);
     },{i,count});
     const s=await c.send('Page.captureScreenshot',{format:'jpeg',quality:86,captureBeyondViewport:false});fs.writeFileSync(path.join(frames,String(i).padStart(4,'0')+'.jpg'),Buffer.from(s.data,'base64'));
     if(i%20===0)console.log(name,'frame',i,'/',count);
    }
-  }finally{await c.detach();await page.evaluate(()=>{window.__livingWorld.active=true;window.__livingWorld.dirty=true;});}
+  }finally{await c.detach();await page.evaluate(()=>{window.__livingWorld.active=true;window.__livingWorld.dirty=true;window.__livingWorld.raf=requestAnimationFrame(window.__livingWorld.animate);});}
   const video=path.join(out,'SwitchBot-V5.1.1-'+name+'-Outside-to-Inside.mp4');const result=spawnSync('ffmpeg',['-y','-framerate','12','-i',path.join(frames,'%04d.jpg'),'-c:v','libx264','-crf','20','-pix_fmt','yuv420p','-movflags','+faststart',video],{encoding:'utf8'});
   if(result.status!==0)throw new Error('Film encoding failed: '+result.stderr);fs.rmSync(frames,{recursive:true,force:true});console.log('FILM',video);
  }

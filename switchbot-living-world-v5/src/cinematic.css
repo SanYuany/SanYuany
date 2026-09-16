@@ -13,7 +13,7 @@
 
 /* Same-house architectural reveal. Controls never steal the mobile scroll region. */
 .exterior-entry{display:block;appearance:none;background:transparent;border:0;border-bottom:1px solid #b0aea1;color:#33483d;font:inherit;font-size:13px;padding:10px 0;margin-top:12px;cursor:pointer;}
-.envelope-control{position:absolute;z-index:8;right:40px;top:142px;display:flex;flex-direction:column;align-items:flex-end;gap:9px;}
+.envelope-control{position:absolute;z-index:8;right:40px;top:183px;display:flex;flex-direction:column;align-items:flex-end;gap:9px;}
 .envelope-caption{font-size:10px;letter-spacing:.1em;color:#52645b;}
 .envelope-control>div{display:flex;border:1px solid #d4d2c6;border-radius:30px;padding:4px;background:rgba(251,250,243,.94);box-shadow:0 6px 25px #313a3510;}
 .envelope-control button{padding:9px 17px;min-height:38px;border:0;border-radius:24px;background:transparent;color:#34443b;font:inherit;font-size:12px;cursor:pointer;}
@@ -23,4 +23,7 @@
 .room-hotspot{position:absolute;top:0;left:0;pointer-events:auto;padding:11px 13px;min-height:42px;white-space:nowrap;border:1px solid #e0e0d4;border-radius:9px;color:#263c30;background:rgba(253,252,245,.96);font:inherit;font-size:12px;cursor:pointer;box-shadow:0 4px 16px #18342218;}
 .room-hotspot small{color:#8a938d;font-size:9px;margin-right:8px;}.room-hotspot span{margin-left:8px;color:#bd4034;}
 .room-hotspot:focus-visible,.envelope-control button:focus-visible,.exterior-entry:focus-visible{outline:3px solid #b8563d;outline-offset:3px;}
-@media(max-width:759px){.envelope-control{right:14px;top:142px;gap:5px;}.envelope-control button{font-size:11px;min-height:38px;padding:8px 13px;}.envelope-caption{font-size:9px;}.room-hotspot{font-size:11px;padding:9px 10px;min-height:42px;}.exterior-entry{font-size:12px;}}
+@media(max-width:759px){.envelope-control{right:14px;top:158px;gap:5px;}.envelope-control button{font-size:11px;min-height:38px;padding:8px 13px;}.envelope-caption{display:none;}.room-hotspot{font-size:11px;padding:9px 10px;min-height:42px;}.exterior-entry{font-size:12px;}}
+
+.spatial-first .envelope-control{top:244px;}
+@media(max-width:759px){.spatial-first .envelope-control{top:231px;}}

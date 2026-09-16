@@ -8,3 +8,6 @@ Builds on verified 4d88252 V5.1 source. Does not change the approved four chapte
 - New deterministic regression tests verify elapsed-time interpolation, interruption/reversal, and reduced-motion isolation.
 
 This remains a stylized architectural concept, not CAD-accurate product geometry or the original AI-video-chain Scroll World pipeline. Public deployment is a separate gate, never implied by archive delivery.
+
+## Visual regression correction
+The complete mobile exterior preset was being clamped to the old 37-unit orbit maximum. Preset-aligned orbit limits and fog now preserve the full property in portrait. Breakpoint changes reframe the exterior. Architecture controls sit below the product/fullscreen toolbar rather than overlapping it.

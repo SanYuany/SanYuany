@@ -21,3 +21,9 @@ export function envelopeAt(from,to,elapsed,reducedMotion=false,duration=1200){
  const t=clamp(elapsed/duration),e=t*t*(3-2*t);
  return a+(b-a)*e;
 }
+
+/** Camera presets and orbit limits must agree; otherwise portrait is silently zoomed in. */
+export function exteriorNavigation(mobile=false){
+ const frame=exteriorCamera(mobile),d=Math.hypot(...frame.position.map((v,i)=>v-frame.target[i]));
+ return {maxDistance:Math.max(37,d*1.15),fogNear:Math.max(42,d+16),fogFar:Math.max(94,d+68)};
+}

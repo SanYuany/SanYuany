@@ -1,6 +1,6 @@
 import {LivingWorld as BaseWorld} from './world.js';
 import {finishArchitecture} from './architectural-finish.js';
-import {resolveEnvelope,exteriorCamera,envelopeAt} from './architecture-state.js';
+import {resolveEnvelope,exteriorCamera,envelopeAt,exteriorNavigation} from './architecture-state.js';
 /** Same house and renderer for exterior, cutaway, and room cameras. */
 export class LivingWorld extends BaseWorld {
  constructor(canvas,options){
@@ -10,16 +10,16 @@ export class LivingWorld extends BaseWorld {
   this.stateSignature='';this.dirty=true;this.renderer.shadowMap.needsUpdate=true;
  }
  frameExterior(){
-  if(this.mode==='explore'&&this.roomId==='outside'&&this.width){const p=exteriorCamera(this.mobile);this.camera.setViewOffset(this.width,this.height,this.width*p.offset[0],this.height*p.offset[1],this.width,this.height);}
+  if(this.mode==='explore'&&this.roomId==='outside'&&this.width){const p=exteriorCamera(this.mobile),n=exteriorNavigation(this.mobile);this.controls.maxDistance=n.maxDistance;this.scene.fog.near=n.fogNear;this.scene.fog.far=n.fogFar;this.camera.setViewOffset(this.width,this.height,this.width*p.offset[0],this.height*p.offset[1],this.width,this.height);}
  }
- resize(){super.resize();this.frameExterior();}
+ resize(){const wasMobile=this.mobile;super.resize();if(this.controls&&this.mode==='explore'&&this.roomId==='outside'&&wasMobile!==this.mobile)this.setRoom('outside');this.frameExterior();}
  setRoom(id){
-  this.roomId=id;this.envelopeOverride=null;super.setRoom(id);this.stateSignature='';this.projectionShift=NaN;
+  this.roomId=id;this.envelopeOverride=null;if(id!=='outside'){this.controls.maxDistance=37;this.scene.fog.near=42;this.scene.fog.far=94;}super.setRoom(id);this.stateSignature='';this.projectionShift=NaN;
   if(id==='outside'){
    const p=exteriorCamera(this.mobile);this.roomTransition.to.set(...p.position);this.roomTransition.toTarget.set(...p.target);this.frameExterior();
   }else{this.camera.clearViewOffset();this.camera.updateProjectionMatrix();}
  }
- setMode(mode){super.setMode(mode);this.envelopeOverride=null;this.projectionShift=NaN;if(mode==='story')this.roomId='all';}
+ setMode(mode){if(mode==='story'){this.scene.fog.near=42;this.scene.fog.far=94;}super.setMode(mode);this.envelopeOverride=null;this.projectionShift=NaN;if(mode==='story')this.roomId='all';}
  setFloor(value){super.setFloor(value);this.stateSignature='';if(value!=='all')this.envelopeOverride=null;}
  setEnvelopeView(closed){
   if(this.mode!=='explore'||!['all','outside'].includes(this.roomId)||this.floor!=='all')return false;
