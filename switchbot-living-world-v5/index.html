@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#eee9df">
+<meta name="description" content="朝の光から、おやすみまで。日本の一戸建てをめぐり、SwitchBotでつくる暮らしと製品の組み合わせを体験。">
+<meta name="robots" content="noindex,nofollow"><title>SwitchBot Living World — 暮らしに合わせて、家が動く。</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23e94436'/%3E%3Ctext x='9' y='29' fill='white' font-family='Arial' font-size='28' font-weight='bold'%3ES%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="./src/styles.css">
+<link rel="stylesheet" href="./src/cinematic.css">
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
+</head>
+<body>
+<a class="skip" href="#build">暮らしのプランへスキップ</a>
+<header class="header"><a class="brand" href="#experience" id="homeLink"><span class="brand-word">SwitchBot</span><span class="brand-separator"></span><span class="brand-sub">Living World</span></a><nav aria-label="メインナビゲーション"><button class="nav-item active" id="storyNav">一日を体験</button><button class="nav-item" id="exploreNav">家を探索</button><a class="nav-plan" href="#build" id="planNav">わが家のプラン <span>↗</span></a></nav></header>
+<main>
+<section id="experience" class="experience" aria-label="SwitchBotのある一日">
+<div class="stage" id="stage">
+ <canvas id="worldCanvas" aria-label="日本二階建て住宅の3Dモデル。スクロールで一日を体験。" tabindex="0"></canvas>
+ <div class="loading" id="loading"><span class="loading-line"></span><p>家に、明かりを。</p><small>Preparing your home</small></div>
+ <div class="edge-shade" aria-hidden="true"></div>
+ <div class="hero-copy" id="heroCopy"><p class="eyebrow"><span class="red-line"></span> A DAY WITH SWITCHBOT</p><h1>いつもの家に、<br><em>新しい一日を。</em></h1><p class="lead">朝の光も、帰宅の明かりも。<br>暮らしの中で、つながるSwitchBot。</p><button class="primary" id="startExperience">一日を再生する <span>▶</span></button><p class="small-hint">スクロールでも体験できます</p></div>
+ <article class="chapter-copy" id="chapterCopy" hidden><p class="chapter-time"><span id="sceneTime">07:00</span><span id="sceneEnglish">A softer start</span></p><h2 id="sceneTitle"></h2><p class="lead" id="sceneBody"></p><ol class="actions" id="actionSteps"></ol><button class="outline" id="solutionButton">この暮らしのつくり方 <span>↗</span></button></article>
+ <aside class="room-label" id="roomLabel"><span class="live-dot"></span><span id="roomName">JAPANESE HOME / 1F + 2F</span></aside>
+ <div id="deviceLayer" aria-hidden="true"></div><div class="world-toolbar"><button id="showDevices" type="button" aria-pressed="false">製品の場所</button><button id="cinemaFullscreen" type="button" aria-label="全画面">⛶</button></div><div class="model-note" id="modelNote">空間・製品形状はイメージです</div>
+ <div class="stage-controls" id="stageControls"><button class="play-toggle" id="playToggle" aria-label="一日の自動再生" aria-pressed="false">▶</button><nav id="timeline" class="timeline" aria-label="一日の場面"></nav><button class="text-toggle" id="textToggle" aria-pressed="false" aria-label="文字を隠して3Dを見る">3Dのみ</button></div>
+ <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+ <aside class="explore-panel" id="explorePanel" hidden><p class="eyebrow">EXPLORE YOUR HOME</p><h2>気になる部屋から。</h2><p class="explore-lead">ドラッグで回転。部屋を選んで、<br>暮らしのアイデアを見てみよう。</p><div id="roomButtons" class="room-buttons"></div><div class="explore-related" id="relatedScenes"></div><div class="try-devices"><span>この部屋で試す</span><button id="tryCurtain">カーテンを動かす</button><button id="tryLight">明かりを切り替える</button></div><button id="backToStory" class="outline">一日の体験に戻る <span>↗</span></button></aside>
+ <div class="explore-tools" id="exploreTools" hidden><div class="segmented" id="floorControls"><button data-floor="all" class="selected">全体</button><button data-floor="1">1F</button><button data-floor="2">2F</button></div><div class="segmented" id="lightControls"><button data-light="day" class="selected">夕方</button><button data-light="night">夜</button></div><button class="tool-button" id="resetView">視点を戻す ↺</button></div>
+ <div class="fallback" id="fallback" hidden><h2>この環境では3Dを表示できません。</h2><p>ハードウェアアクセラレーションを有効にしたブラウザで再度お試しください。<br>プランづくりは、このまま利用できます。</p><a href="#build" class="primary">暮らしのプランへ ↓</a></div>
+</div>
+</section>
+<section class="bridge"><p class="eyebrow">SMALL DEVICES. A DIFFERENT DAY.</p><h2>ひとつから始めて、<br>暮らしでつながる。</h2><p>すべてを一度に揃えなくても。<br>叶えたい暮らしから、あなたの組み合わせを。</p><button class="outline dark" id="exploreBelow">この家を自由に探索する <span>↗</span></button></section>
+<section id="build" class="build-section"><div class="build-heading"><div><p class="eyebrow">BUILD MY HOME</p><h2>わが家なら、<br>どう変わる？</h2></div><p>目的と今ある製品から、必要な組み合わせを。<br>入力した内容は、このブラウザ内に保存されます。</p></div>
+ <div class="builder-layout"><form id="planForm" class="builder-form"><fieldset><legend><span>01</span> どんな暮らしにしたい？</legend><div class="goal-grid" id="goalGrid"></div></fieldset>
+ <fieldset><legend><span>02</span> カーテンと家電について</legend><label class="form-row" for="windowCount">自動化したい窓の数 <select id="windowCount" name="windows"><option value="1">1か所</option><option value="2">2か所</option><option value="3">3か所</option><option value="4">4か所</option><option value="5">5か所</option><option value="6">6か所</option></select></label><label class="form-row" for="curtainType">カーテンの開き方 <select id="curtainType"><option value="split">両開き</option><option value="single">片開き</option></select></label><label class="checkbox-row"><input type="checkbox" id="compatibleLight"> 対象の照明・空調の対応状況を確認済み</label><small>赤外線・通信範囲・ドアやレールの適合確認が必要です。</small></fieldset>
+ <fieldset><legend><span>03</span> すでにお持ちのSwitchBot</legend><div id="ownedProducts" class="owned-grid"></div></fieldset><button type="button" class="reset-link" id="resetPlan">入力をリセット</button></form>
+ <aside class="plan-result" id="planResult" aria-live="polite"><p class="eyebrow">YOUR LIVING PLAN</p><div id="planSummary"></div><div id="planProducts"></div><div id="planOptional"></div><div id="planWarnings"></div><div class="plan-actions"><button class="primary" id="sharePlan">プランを共有 ↗</button><button class="outline dark" id="exportPlan">保存 ↓</button></div><p class="commerce-note">台数は目安です。価格・セット内容・在庫は公式サイトでご確認ください。ここでは一括購入や決済は行いません。</p></aside>
+ </div>
+</section>
+<footer><a class="brand-word" href="#experience">SwitchBot</a><p>いつもの家に、少し先の暮らしを。</p><small>Living World V5 · 日本一戸建て コンセプト体験<br>住宅・製品は簡略化した3Dイメージ。実際の形状・動作速度とは異なります。機器の対応確認と事前設定が必要です。</small><a href="./docs/FACTS.html">機能の出典とご利用条件 ↗</a></footer>
+</main>
+<dialog id="solutionDialog"><button id="closeDialog" class="close-dialog" aria-label="閉じる">×</button><div id="dialogContent"></div></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+<noscript><div class="noscript">この3D体験にはJavaScriptが必要です。<a href="https://www.switchbot.jp/">SwitchBot公式サイトへ</a></div></noscript>
+<script type="module" src="./src/app.js"></script>
+</body></html>

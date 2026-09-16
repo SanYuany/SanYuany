@@ -1,0 +1,51 @@
+{
+  "reviewed": "2026-09-14",
+  "market": "JP",
+  "status": "public-source-review; not brand sign-off",
+  "facts": [
+    {
+      "id": "F01",
+      "product": "curtain",
+      "claim": "Scheduled opening; QuietDrift; rail compatibility required",
+      "source": "https://www.switchbot.jp/products/switchbot-curtain3"
+    },
+    {
+      "id": "F02",
+      "product": "hub",
+      "claim": "Control compatible IR appliances and configured scenes; coverage must be checked",
+      "source": "https://www.switchbot.jp/products/switchbot-hub3"
+    },
+    {
+      "id": "F03",
+      "product": "lock",
+      "claim": "Locking/unlocking does not physically swing the door; fit and autolock setup required",
+      "source": "https://www.switchbot.jp/products/switchbot-lock-ultra"
+    },
+    {
+      "id": "F04",
+      "product": "keypad",
+      "claim": "Face authentication paired with a compatible lock; enroll and check mounting",
+      "source": "https://www.switchbot.jp/products/switchbot-keypad-vision"
+    },
+    {
+      "id": "F05",
+      "product": "remote",
+      "claim": "Optional remote control; scene requirements and lock-action exclusions apply",
+      "source": "https://www.switchbot.jp/products/switchbot-remote"
+    }
+  ],
+  "visual_scope": {
+    "house": "original procedural illustration",
+    "product_geometry": "simplified; not CAD approved",
+    "door_motion": "human-operated illustration",
+    "time": "compressed for storytelling"
+  },
+  "not_claimed": [
+    "last-person presence detection",
+    "automatic door opening",
+    "universal IR compatibility",
+    "one hub guarantees two-storey coverage",
+    "guaranteed energy savings",
+    "live prices or inventory"
+  ]
+}
