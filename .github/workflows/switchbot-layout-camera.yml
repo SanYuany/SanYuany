@@ -1,0 +1,64 @@
+name: Verify V5.1.1 portrait framing and controls
+on:
+  push:
+    branches: [switchbot-living-world-v5]
+    paths: ['delivery/layout-camera*', '.github/workflows/switchbot-layout-camera.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: switchbot-layout-camera
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply minimal reviewed framing correction
+        run: |
+          git apply --check --directory=switchbot-living-world-v5 delivery/layout-camera.patch
+          git apply --directory=switchbot-living-world-v5 delivery/layout-camera.patch
+          node delivery/layout-camera-prepare.mjs
+      - name: Test and build exact corrected source
+        working-directory: switchbot-living-world-v5
+        run: |
+          mkdir -p evidence/reveal
+          set -o pipefail
+          npm test | tee evidence/reveal/unit-tests.txt
+          npm run check
+          npm run build
+          npm run portable
+      - name: Verify browser and encoder before rendering
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg >/dev/null
+          ffmpeg -version | head -1
+      - name: Start actual HTTP page
+        run: |
+          python3 -m http.server 4188 --directory switchbot-living-world-v5 >/tmp/sb-layout-http.log 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:4188/ >/dev/null
+      - name: Verify full interactions, portrait bounds and non-overlapping controls; render films
+        run: node delivery/layout-camera-browser.mjs
+      - name: Preserve verified corrections on the existing V5 branch
+        run: |
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add switchbot-living-world-v5/src switchbot-living-world-v5/tests switchbot-living-world-v5/docs
+          if ! git diff --cached --quiet; then git commit -m 'fix: verified full portrait exterior and separated 3D controls'; git push origin HEAD:switchbot-living-world-v5; fi
+      - name: Preserve exact output and evidence
+        if: always()
+        run: tar --exclude=node_modules --exclude=.git --exclude=frames-desktop --exclude=frames-mobile -czf /tmp/SwitchBot-V511-Framing-Verified.tar.gz switchbot-living-world-v5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-v511-framing-delivery
+          path: /tmp/SwitchBot-V511-Framing-Verified.tar.gz
+          retention-days: 30
+          if-no-files-found: error
