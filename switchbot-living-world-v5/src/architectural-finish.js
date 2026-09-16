@@ -99,10 +99,31 @@ export function finishArchitecture(house) {
   for(let i=0;i<node.count;i++){node.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);scale.set(scale.x*.9,scale.x*1.35,1);matrix.compose(position,rotation,scale);node.setMatrixAt(i,matrix);}
   node.instanceMatrix.needsUpdate=true;node.computeBoundingSphere();
  }});
- let closed=false;
+ // Clone only envelope materials. A facade fade must not fade furniture sharing oak or metal.
+ const fadeMaterials=new Map();
+ for(const group of [lower,upper])group.traverse(node=>{
+  if(!node.isMesh)return;
+  const source=node.material;
+  if(!fadeMaterials.has(source)){const clone=source.clone();fadeMaterials.set(source,{material:clone,opacity:source.opacity,transparent:source.transparent,depthWrite:source.depthWrite});materials.push(clone);}
+  node.material=fadeMaterials.get(source).material;
+ });
+ let amount=0;
+ function setAmount(value){
+  const next=Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
+  if(Math.abs(next-amount)<.000001)return false;
+  amount=next;lower.visible=upper.visible=amount>.0001;
+  for(const info of fadeMaterials.values()){
+   const m=info.material,blend=amount<.9999||info.transparent;
+   if(m.transparent!==blend){m.transparent=blend;m.needsUpdate=true;}
+   m.opacity=info.opacity*amount;m.depthWrite=amount>.9999&&info.depthWrite;
+  }
+  for(const group of [lower,upper])group.traverse(node=>{if(node.isMesh)node.castShadow=amount>.98&&!node.material.transparent;});
+  return true;
+ }
  return {lower,upper,textures,
-  setState(state){if(closed!==state.closed){closed=state.closed;lower.visible=upper.visible=closed;return true;}return false;},
-  snapshot(){return {finishedExterior:closed,lowerVisible:lower.visible,upperVisible:upper.visible,originalProceduralMaps:textures.length};},
+  setState(state){return setAmount(state.closed?1:0);},
+  setAmount,
+  snapshot(){return {finishedExterior:amount>.9999,envelopeAmount:amount,lowerVisible:lower.visible,upperVisible:upper.visible,originalProceduralMaps:textures.length};},
   dispose(){for(const t of textures)t.dispose();for(const m of materials)m.dispose();for(const g of geometry)g.dispose();}
  };
 }

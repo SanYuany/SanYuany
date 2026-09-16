@@ -68,3 +68,5 @@ window.__app={seek,goScene,setMode,selectRoom,startPlay,stopPlay,readInput,build
 
 import './spatial-view.js';
 import './cinematic.js';
+
+import './house-controls.js';
