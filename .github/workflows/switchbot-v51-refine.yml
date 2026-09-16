@@ -1,0 +1,71 @@
+name: Verify V5.1 architectural refinement
+on:
+  push:
+    branches: [switchbot-living-world-v5]
+    paths: ['.github/workflows/switchbot-v51-refine.yml', 'delivery/v51-integrate.py', 'switchbot-living-world-v5/src/architectural-finish.js', 'switchbot-living-world-v5/src/refined-world.js']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: switchbot-v51-refine
+  cancel-in-progress: true
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Integrate refinement into the existing V5 source
+        run: python3 delivery/v51-integrate.py
+      - name: Run domain tests and build both local and hosted versions
+        working-directory: switchbot-living-world-v5
+        run: |
+          mkdir -p evidence/refinement
+          set -o pipefail
+          npm test | tee evidence/refinement/unit-tests.txt
+          npm run check
+          npm run build
+          npm run portable
+      - name: Install browser and check video encoder first
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version
+      - name: Start a normal HTTP build preview
+        run: |
+          python3 -m http.server 4185 --directory switchbot-living-world-v5/dist >/tmp/v51-http.log 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:4185/release.json
+      - name: Test real 3D facade and room transitions, mobile, export and offline build
+        working-directory: switchbot-living-world-v5
+        run: node tests/refinement-browser.mjs
+      - name: Preserve screenshots before video work
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v51-screenshots
+          path: switchbot-living-world-v5/evidence/refinement/
+          retention-days: 30
+      - name: Commit verified integration to the existing isolated V5 branch
+        run: |
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add switchbot-living-world-v5/src/app.js switchbot-living-world-v5/src/data.js switchbot-living-world-v5/package.json switchbot-living-world-v5/scripts/build.mjs switchbot-living-world-v5/index.html switchbot-living-world-v5/docs/IMPLEMENTATION.md
+          if ! git diff --cached --quiet; then git commit -m 'feat: integrate verified V5.1 finished exterior and material refinement'; git push origin HEAD:switchbot-living-world-v5; fi
+      - name: Render an actual exterior-camera orbit to MP4
+        working-directory: switchbot-living-world-v5
+        run: node scripts/exterior-film.mjs
+      - name: Package source, direct-open page, deployment build and evidence
+        if: always()
+        run: tar --exclude=node_modules --exclude=.git --exclude=exterior-frames -czf /tmp/SwitchBot-Living-World-V5.1.tar.gz switchbot-living-world-v5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-v51-delivery
+          path: /tmp/SwitchBot-Living-World-V5.1.tar.gz
+          retention-days: 30
