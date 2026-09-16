@@ -8,5 +8,8 @@ if 'exteriorMaxDistance' not in s:
  s=s.replace('exteriorCamera,storyEnvelopeAlpha','exteriorCamera,storyEnvelopeAlpha,exteriorMaxDistance')
  s=s.replace(' frameExterior(){'," frameExterior(){\n  if(this.controls)this.controls.maxDistance=this.roomId==='outside'?exteriorMaxDistance(this.mobile):37;")
  s=s.replace('}else{this.camera.clearViewOffset();','}else{this.controls.maxDistance=37;this.camera.clearViewOffset();')
- f.write_text(s)
-print('Exterior camera clamp and reset corrected.')
+# A ResizeObserver fires after viewport changes. Updating only the view offset retained
+# the desktop camera in portrait. Recompose the full pose, then apply its new clamp.
+s=s.replace(' resize(){super.resize();this.frameExterior();}'," resize(){super.resize();if(this.mode==='explore'&&this.roomId==='outside'){const p=exteriorCamera(this.mobile);this.camera.position.set(...p.position);this.look.set(...p.target);this.controls.target.copy(this.look);this.camera.lookAt(this.look);this.roomTransition=null;}this.frameExterior();}")
+f.write_text(s)
+print('Exterior camera clamp, responsive pose and reset corrected.')
