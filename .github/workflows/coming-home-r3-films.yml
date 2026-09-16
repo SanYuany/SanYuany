@@ -1,0 +1,66 @@
+name: Coming Home R3 proof films
+on:
+  push:
+    branches: [switchbot-coming-home-study]
+    paths: ['.github/workflows/coming-home-r3-films.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  film:
+    strategy:
+      fail-fast: false
+      matrix:
+        view: [desktop, mobile]
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 35096243335
+          name: coming-home-final-desktop
+          path: r3-stage
+      - name: Restore same-house source and reviewed correction
+        run: |
+          python3 coming-home-study/r3/apply.py
+          python3 coming-home-study/r3/refine.py
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg >/tmp/r3-ffmpeg.log
+          ffmpeg -version | head -1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Publish early actual keyframes independently of film encoding
+        env:
+          VIEW: ${{ matrix.view }}
+          KEYFRAMES_ONLY: '1'
+        run: |
+          python3 -m http.server 4188 --directory r3-stage >/tmp/r3-http.log 2>&1 &
+          sleep 2
+          node coming-home-study/r3/film.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coming-home-r3-keyframes-${{ matrix.view }}
+          path: r3-stage/evidence/final-${{ matrix.view }}/
+          retention-days: 14
+      - name: Render and full-decode version-matched 24-second film
+        env:
+          VIEW: ${{ matrix.view }}
+        run: node coming-home-study/r3/film.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coming-home-r3-film-${{ matrix.view }}
+          path: |
+            r3-stage/evidence/final-${{ matrix.view }}/*.mp4
+            r3-stage/evidence/final-${{ matrix.view }}/*.json
+            r3-stage/evidence/final-${{ matrix.view }}/*.png
+            r3-stage/stage.js
+            r3-stage/director.js
+            r3-stage/src/coming-home/
+          retention-days: 14
