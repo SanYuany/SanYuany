@@ -1,0 +1,56 @@
+name: Preserve verified SwitchBot V5.2 source
+on:
+  push:
+    branches: [switchbot-living-world-v52-release]
+    paths: ['.github/workflows/switchbot-v52-preserve.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          name: switchbot-v52-source
+          run-id: 35079654125
+          github-token: ${{ github.token }}
+          path: /tmp/v52-approved-source
+      - uses: actions/download-artifact@v5
+        with:
+          name: switchbot-v52-browser
+          run-id: 35079654125
+          github-token: ${{ github.token }}
+          path: /tmp/v52-approved-browser
+      - name: Verify real browser acceptance and restore only this project
+        run: |
+          node --input-type=module -e "import fs from 'node:fs';import assert from 'node:assert/strict';let r=JSON.parse(fs.readFileSync('/tmp/v52-approved-browser/report.json'));assert.equal(r.status,'PASS');assert.equal(r.errors.length,0);assert.equal(r.checks.length,19)"
+          mkdir -p /tmp/v52-approved-expanded
+          tar -xzf /tmp/v52-approved-source/SwitchBot-V5.2-Source.tar.gz -C /tmp/v52-approved-expanded
+          rsync -a --exclude=dist --exclude=portable --exclude=evidence --exclude=node_modules --exclude=.git /tmp/v52-approved-expanded/switchbot-living-world-v5/ switchbot-living-world-v5/
+      - name: Re-run source verification before committing
+        working-directory: switchbot-living-world-v5
+        run: |
+          npm test
+          npm run check
+          node -e "if(require('./package.json').version!=='5.2.0')process.exit(1)"
+      - name: Commit only verified source; never force-push or touch main
+        run: |
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add switchbot-living-world-v5
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat: preserve verified V5.2 facade reveal, portrait framing and offline sharing'
+            git push origin HEAD:switchbot-living-world-v52-release
+          fi
+          git rev-parse HEAD > /tmp/v52-source-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v52-preserved-commit
+          path: /tmp/v52-source-commit.txt
+          retention-days: 30
