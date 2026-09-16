@@ -1,0 +1,92 @@
+name: Verify and film SwitchBot Living World V5
+on:
+  push:
+    branches: [switchbot-living-world-v5]
+    paths: ['delivery/v5-*', '.github/workflows/switchbot-v5-visual.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: switchbot-v5-visual
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore hash-verified reviewed source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,zlib,hashlib,shutil,json
+          text=''.join(Path('delivery/v5-core.part'+str(i)).read_text().strip() for i in range(4))
+          patch=zlib.decompress(base64.b64decode(text))
+          assert hashlib.sha256(patch).hexdigest()=='fcab5dfd792d7f0d84474202996aa15146e56a19f4371f2830ee25194b66c405'
+          Path('/tmp/v5.patch').write_bytes(patch)
+          dest=Path('switchbot-living-world-v5')
+          if dest.exists():shutil.rmtree(dest)
+          shutil.copytree('switchbot-living-world-v4',dest,ignore=shutil.ignore_patterns('node_modules','dist','evidence','portable','.git'))
+          PY
+          patch --batch -p1 -d switchbot-living-world-v5 < /tmp/v5.patch
+          cp delivery/v5-portable.py switchbot-living-world-v5/scripts/portable.py
+          cp delivery/v5-browser.mjs switchbot-living-world-v5/tests/v5-browser.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          p=Path('switchbot-living-world-v5/package.json');v=json.loads(p.read_text());v['version']='5.0.0';v['scripts']['portable']='python3 scripts/portable.py';p.write_text(json.dumps(v,indent=2)+'\n')
+          p=Path('switchbot-living-world-v5/scripts/build.mjs');s=p.read_text().replace("version:'4.0.0'","version:'5.0.0'");p.write_text(s)
+          PY
+      - name: Test real state logic and build self-contained distribution
+        working-directory: switchbot-living-world-v5
+        run: |
+          mkdir -p evidence
+          set -o pipefail
+          npm test | tee evidence/unit-tests.txt
+          npm run check
+          npm run build
+          npm run portable
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start HTTP preview of actual V5 source
+        run: |
+          python3 -m http.server 4195 --directory switchbot-living-world-v5 >/tmp/v5-http.log 2>&1 &
+          sleep 2
+          curl -fsS http://127.0.0.1:4195/ >/dev/null
+      - name: Capture actual visual and functional browser evidence
+        run: node delivery/v5-browser.mjs
+      - name: Preserve early screenshots and browser test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v5-screenshots
+          path: switchbot-living-world-v5/evidence/
+          retention-days: 14
+      - name: Render continuous desktop and mobile camera films
+        run: |
+          node delivery/v5-film.mjs
+          ffmpeg -y -framerate 12 -i switchbot-living-world-v5/evidence/frames-desktop/%04d.jpg -c:v libx264 -crf 20 -pix_fmt yuv420p -movflags +faststart switchbot-living-world-v5/evidence/SwitchBot-V5-Desktop-Journey.mp4
+          ffmpeg -y -framerate 12 -i switchbot-living-world-v5/evidence/frames-mobile/%04d.jpg -c:v libx264 -crf 20 -pix_fmt yuv420p -movflags +faststart switchbot-living-world-v5/evidence/SwitchBot-V5-Mobile-Journey.mp4
+          rm -rf switchbot-living-world-v5/evidence/frames-*
+      - name: Commit tested modular source only to isolated V5 branch
+        run: |
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add switchbot-living-world-v5/src switchbot-living-world-v5/vendor switchbot-living-world-v5/docs switchbot-living-world-v5/scripts switchbot-living-world-v5/tests switchbot-living-world-v5/index.html switchbot-living-world-v5/package.json switchbot-living-world-v5/netlify.toml switchbot-living-world-v5/README.md
+          if ! git diff --cached --quiet; then git commit -m 'feat: deliver tested V5 interior camera journey and refined Japanese house'; git push origin HEAD:switchbot-living-world-v5; fi
+      - name: Package recoverable source and runnable outputs
+        if: always()
+        run: |
+          tar --exclude=node_modules --exclude=.git --exclude=frames-desktop --exclude=frames-mobile -czf /tmp/SwitchBot-Living-World-V5.tar.gz switchbot-living-world-v5
+      - name: Upload full deliverable and dynamic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v5-delivery
+          path: /tmp/SwitchBot-Living-World-V5.tar.gz
+          retention-days: 14
