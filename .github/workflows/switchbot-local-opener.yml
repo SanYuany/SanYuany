@@ -59,7 +59,8 @@ jobs:
             ok('Planner deducts owned devices',await p.evaluate(()=>window.__currentPlan.products.find(x=>x.id==='curtain').toBuy===3));
             const download=p.waitForEvent('download',{timeout:45000});await p.locator('#exportPlan').click();const d=await download;await d.saveAs(path.join(dir,'saved-plan.html'));
             ok('Local file exports a usable plan',fs.statSync(path.join(dir,'saved-plan.html')).size>1000);
-            await p.goto(url+'#sb-lite',{waitUntil:'domcontentloaded'});await p.waitForFunction(()=>window.__SB_LAUNCH?.status.state==='ready',null,{timeout:60000});
+            await p.locator('#launch-open').click();await p.locator('#launch-lite').click();
+            await p.waitForFunction(()=>window.__SB_LAUNCH?.status.state==='ready'&&window.__livingWorld?.lightweight===true,null,{timeout:60000});
             ok('Low-load mode still renders real 3D, with reduced shadows/reflection',await p.evaluate(()=>window.__livingWorld.lightweight&&window.__livingWorld.renderer.shadowMap.enabled===false&&window.__livingWorld.envTarget===null));
             await p.setViewportSize({width:390,height:844});await p.evaluate(()=>{window.__spatial?.stopIntro();window.__app.seek(0,true);window.__livingWorld.renderAt(0);});await p.waitForTimeout(500);await shot(p,'portrait-lite-open');
             ok('Portrait has no horizontal overflow',await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
