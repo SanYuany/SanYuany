@@ -1,0 +1,220 @@
+diff --git a/docs/CONTINUATION.md b/docs/CONTINUATION.md
+new file mode 100644
+--- /dev/null
++++ b/docs/CONTINUATION.md
+@@ -0,0 +1,10 @@
++# V5.1.1 — same house, outside to inside
++
++Builds on verified 4d88252 V5.1 source. Does not change the approved four chapters or product claims.
++
++- Complete exterior and cutaway now morph in place. Roof lifts as facade transparency changes. Orbit and camera remain at the same location during a user-triggered view change.
++- Exterior-first entry from the hero. After revealing the plan, accessible room labels attach to 3D coordinates; selecting one moves the actual camera into the corresponding room.
++- Reduced-motion toggles immediately. Entering a room or isolating a floor removes the envelope immediately to avoid foreground wall obstruction.
++- New deterministic regression tests verify elapsed-time interpolation, interruption/reversal, and reduced-motion isolation.
++
++This remains a stylized architectural concept, not CAD-accurate product geometry or the original AI-video-chain Scroll World pipeline. Public deployment is a separate gate, never implied by archive delivery.
+diff --git a/index.html b/index.html
+--- a/index.html
++++ b/index.html
+@@ -40 +40 @@
+-<footer><a class="brand-word" href="#experience">SwitchBot</a><p>いつもの家に、少し先の暮らしを。</p><small>Living World V5.1 · 日本一戸建て コンセプト体験<br>住宅・製品は簡略化した3Dイメージ。実際の形状・動作速度とは異なります。機器の対応確認と事前設定が必要です。</small><a href="./docs/FACTS.html">機能の出典とご利用条件 ↗</a></footer>
++<footer><a class="brand-word" href="#experience">SwitchBot</a><p>いつもの家に、少し先の暮らしを。</p><small>Living World V5.1.1 · 日本一戸建て コンセプト体験<br>住宅・製品は簡略化した3Dイメージ。実際の形状・動作速度とは異なります。機器の対応確認と事前設定が必要です。</small><a href="./docs/FACTS.html">機能の出典とご利用条件 ↗</a></footer>
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -3 +3 @@
+-  "version": "5.1.0",
++  "version": "5.1.1",
+diff --git a/src/app.js b/src/app.js
+--- a/src/app.js
++++ b/src/app.js
+@@ -70,0 +71,2 @@
++
++import './house-controls.js';
+diff --git a/src/architectural-finish.js b/src/architectural-finish.js
+--- a/src/architectural-finish.js
++++ b/src/architectural-finish.js
+@@ -102 +102,21 @@
+- let closed=false;
++ // Clone only envelope materials. A facade fade must not fade furniture sharing oak or metal.
++ const fadeMaterials=new Map();
++ for(const group of [lower,upper])group.traverse(node=>{
++  if(!node.isMesh)return;
++  const source=node.material;
++  if(!fadeMaterials.has(source)){const clone=source.clone();fadeMaterials.set(source,{material:clone,opacity:source.opacity,transparent:source.transparent,depthWrite:source.depthWrite});materials.push(clone);}
++  node.material=fadeMaterials.get(source).material;
++ });
++ let amount=0;
++ function setAmount(value){
++  const next=Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
++  if(Math.abs(next-amount)<.000001)return false;
++  amount=next;lower.visible=upper.visible=amount>.0001;
++  for(const info of fadeMaterials.values()){
++   const m=info.material,blend=amount<.9999||info.transparent;
++   if(m.transparent!==blend){m.transparent=blend;m.needsUpdate=true;}
++   m.opacity=info.opacity*amount;m.depthWrite=amount>.9999&&info.depthWrite;
++  }
++  for(const group of [lower,upper])group.traverse(node=>{if(node.isMesh)node.castShadow=amount>.98&&!node.material.transparent;});
++  return true;
++ }
+@@ -104,2 +124,3 @@
+-  setState(state){if(closed!==state.closed){closed=state.closed;lower.visible=upper.visible=closed;return true;}return false;},
+-  snapshot(){return {finishedExterior:closed,lowerVisible:lower.visible,upperVisible:upper.visible,originalProceduralMaps:textures.length};},
++  setState(state){return setAmount(state.closed?1:0);},
++  setAmount,
++  snapshot(){return {finishedExterior:amount>.9999,envelopeAmount:amount,lowerVisible:lower.visible,upperVisible:upper.visible,originalProceduralMaps:textures.length};},
+diff --git a/src/architecture-state.js b/src/architecture-state.js
+--- a/src/architecture-state.js
++++ b/src/architecture-state.js
+@@ -2,2 +2,3 @@
+-export function resolveEnvelope({mode='story',room='all',floor='all'}={}) {
+- const closed=mode==='explore'&&room==='outside'&&floor==='all';
++export function resolveEnvelope({mode='story',room='all',floor='all',override=null}={}) {
++ const overview=room==='outside'||room==='all';
++ const closed=mode==='explore'&&floor==='all'&&overview&&(typeof override==='boolean'?override:room==='outside');
+@@ -13,0 +15,9 @@
++
++/** Amount=1 is a complete exterior; zero is a cutaway. Pure, reversible wall-clock transition. */
++export function envelopeAt(from,to,elapsed,reducedMotion=false,duration=1200){
++ const clamp=v=>Math.max(0,Math.min(1,Number.isFinite(v)?v:0));
++ const a=clamp(from),b=clamp(to);
++ if(reducedMotion||duration<=0)return b;
++ const t=clamp(elapsed/duration),e=t*t*(3-2*t);
++ return a+(b-a)*e;
++}
+diff --git a/src/cinematic.css b/src/cinematic.css
+--- a/src/cinematic.css
++++ b/src/cinematic.css
+@@ -12,0 +13,14 @@
++
++/* Same-house architectural reveal. Controls never steal the mobile scroll region. */
++.exterior-entry{display:block;appearance:none;background:transparent;border:0;border-bottom:1px solid #b0aea1;color:#33483d;font:inherit;font-size:13px;padding:10px 0;margin-top:12px;cursor:pointer;}
++.envelope-control{position:absolute;z-index:8;right:40px;top:142px;display:flex;flex-direction:column;align-items:flex-end;gap:9px;}
++.envelope-caption{font-size:10px;letter-spacing:.1em;color:#52645b;}
++.envelope-control>div{display:flex;border:1px solid #d4d2c6;border-radius:30px;padding:4px;background:rgba(251,250,243,.94);box-shadow:0 6px 25px #313a3510;}
++.envelope-control button{padding:9px 17px;min-height:38px;border:0;border-radius:24px;background:transparent;color:#34443b;font:inherit;font-size:12px;cursor:pointer;}
++.envelope-control button[aria-pressed=true]{background:#334b40;color:#fff;}
++.envelope-control[hidden],.room-hotspot[hidden]{display:none!important;}
++.room-hotspots{position:absolute;inset:0;pointer-events:none;z-index:7;}
++.room-hotspot{position:absolute;top:0;left:0;pointer-events:auto;padding:11px 13px;min-height:42px;white-space:nowrap;border:1px solid #e0e0d4;border-radius:9px;color:#263c30;background:rgba(253,252,245,.96);font:inherit;font-size:12px;cursor:pointer;box-shadow:0 4px 16px #18342218;}
++.room-hotspot small{color:#8a938d;font-size:9px;margin-right:8px;}.room-hotspot span{margin-left:8px;color:#bd4034;}
++.room-hotspot:focus-visible,.envelope-control button:focus-visible,.exterior-entry:focus-visible{outline:3px solid #b8563d;outline-offset:3px;}
++@media(max-width:759px){.envelope-control{right:14px;top:142px;gap:5px;}.envelope-control button{font-size:11px;min-height:38px;padding:8px 13px;}.envelope-caption{font-size:9px;}.room-hotspot{font-size:11px;padding:9px 10px;min-height:42px;}.exterior-entry{font-size:12px;}}
+diff --git a/src/house-controls.js b/src/house-controls.js
+new file mode 100644
+--- /dev/null
++++ b/src/house-controls.js
+@@ -0,0 +1,34 @@
++import * as T from 'three';
++/** Architectural controls reveal rooms, not a second model or a flat overlay. */
++const $=s=>document.querySelector(s);
++const spots=[{id:'bedroom',name:'寝室',floor:'2F',point:[1.9,4.65,.8]},{id:'living',name:'リビング',floor:'1F',point:[-2.8,1.6,1.3]},{id:'entrance',name:'玄関',floor:'1F',point:[3.95,1.8,3.7]}];
++async function initialize(){
++ for(let i=0;i<400&&!window.__livingWorld;i++)await new Promise(r=>setTimeout(r,50));
++ const world=window.__livingWorld,app=window.__app;if(!world||!app)return;
++ const hero=document.createElement('button');hero.id='viewExterior';hero.type='button';hero.className='exterior-entry';hero.textContent='外観から、家の中へ ↗';$('#startExperience').after(hero);
++ hero.onclick=()=>{window.__spatial?.stopIntro();window.__spatial?.stopOrbit();app.setMode('explore');app.selectRoom('outside');};
++ const control=document.createElement('div');control.className='envelope-control';control.id='envelopeControl';control.hidden=true;
++ control.innerHTML='<span class="envelope-caption">同じ家を、外から中へ</span><div role="group" aria-label="建物の表示"><button type="button" id="showEnvelope" aria-pressed="false">外観</button><button type="button" id="openEnvelope" aria-pressed="true">間取りを見る</button></div>';
++ $('#stage').append(control);
++ const layer=document.createElement('div');layer.id='roomHotspots';layer.className='room-hotspots';layer.setAttribute('aria-label','3Dの部屋を選ぶ');$('#stage').append(layer);
++ for(const spot of spots){const button=document.createElement('button');button.className='room-hotspot';button.type='button';button.dataset.roomHotspot=spot.id;button.innerHTML='<small>'+spot.floor+'</small>'+spot.name+' <span>↗</span>';button.hidden=true;button.onclick=()=>{window.__spatial?.stopOrbit();app.selectRoom(spot.id);};layer.append(button);spot.button=button;}
++ const set=closed=>{window.__spatial?.stopOrbit();world.setEnvelopeView(closed);};
++ $('#showEnvelope').onclick=()=>set(true);$('#openEnvelope').onclick=()=>set(false);
++ const vector=new T.Vector3(),previous=world.onFrame;
++ world.onFrame=w=>{
++  previous(w);
++  const overview=w.mode==='explore'&&['all','outside'].includes(w.roomId)&&w.floor==='all';
++  control.hidden=!overview;
++  const closed=w.envelopeTo===1;$('#showEnvelope').setAttribute('aria-pressed',String(closed));$('#openEnvelope').setAttribute('aria-pressed',String(!closed));
++  const canvasRect=w.canvas.getBoundingClientRect(),panel=$('#explorePanel').getBoundingClientRect();
++  for(const spot of spots){
++   vector.set(...spot.point).project(w.camera);const x=(vector.x*.5+.5)*w.width,y=(-vector.y*.5+.5)*w.height;
++   const sx=x+canvasRect.left,sy=y+canvasRect.top;
++   const behindPanel=!$('#explorePanel').hidden&&sx>panel.left-55&&sx<panel.right+55&&sy>panel.top-22&&sy<panel.bottom+22;
++   spot.button.hidden=!overview||w.envelopeAmount>.01||Boolean(w.roomTransition)||vector.z<0||vector.z>1||x<70||x>w.width-70||y<180||y>w.height-145||behindPanel;
++   if(!spot.button.hidden)spot.button.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%)`;
++  }
++ };
++ window.__houseControls={ready:true,set};world.dirty=true;
++}
++initialize().catch(e=>console.error('House view controls',e));
+diff --git a/src/refined-world.js b/src/refined-world.js
+--- a/src/refined-world.js
++++ b/src/refined-world.js
+@@ -3,2 +3,2 @@
+-import {resolveEnvelope,exteriorCamera} from './architecture-state.js';
+-/** Refines the existing scene without replacing its products, timeline, or planner. */
++import {resolveEnvelope,exteriorCamera,envelopeAt} from './architecture-state.js';
++/** Same house and renderer for exterior, cutaway, and room cameras. */
+@@ -8,0 +9 @@
++  this.envelopeAmount=0;this.envelopeFrom=0;this.envelopeTo=0;this.envelopeStart=0;this.envelopeOverride=null;
+@@ -16 +17 @@
+-  this.roomId=id;super.setRoom(id);this.stateSignature='';this.projectionShift=NaN;
++  this.roomId=id;this.envelopeOverride=null;super.setRoom(id);this.stateSignature='';this.projectionShift=NaN;
+@@ -21,2 +22,16 @@
+- setMode(mode){super.setMode(mode);this.projectionShift=NaN;if(mode==='story')this.roomId='all';}
+- setFloor(value){super.setFloor(value);this.stateSignature='';}
++ setMode(mode){super.setMode(mode);this.envelopeOverride=null;this.projectionShift=NaN;if(mode==='story')this.roomId='all';}
++ setFloor(value){super.setFloor(value);this.stateSignature='';if(value!=='all')this.envelopeOverride=null;}
++ setEnvelopeView(closed){
++  if(this.mode!=='explore'||!['all','outside'].includes(this.roomId)||this.floor!=='all')return false;
++  this.envelopeOverride=Boolean(closed);this.dirty=true;return true;
++ }
++ animate(time){
++  if(this.finish){
++   const target=resolveEnvelope({mode:this.mode,room:this.roomId,floor:this.floor,override:this.envelopeOverride}).closed?1:0;
++   if(target!==this.envelopeTo){this.envelopeFrom=this.envelopeAmount;this.envelopeTo=target;this.envelopeStart=time;}
++   const immediate=this.reducedMotion||this.mode!=='explore'||this.floor!=='all';
++   const next=envelopeAt(this.envelopeFrom,target,time-this.envelopeStart,immediate);
++   if(next!==this.envelopeAmount){this.envelopeAmount=next;this.dirty=true;}
++  }
++  super.animate(time);
++ }
+@@ -24,7 +39,6 @@
+-  super.applyState(state);
+-  if(!this.finish)return;
+-  const architecture=resolveEnvelope({mode:this.mode,room:this.roomId,floor:this.floor});
+-  if(this.finish.setState(architecture))this.renderer.shadowMap.needsUpdate=true;
+-  if(architecture.roof){
+-   this.house.roofGroup.visible=true;this.house.roofGroup.position.y=0;
+-   for(const mesh of this.house.roof){mesh.material.opacity=1;mesh.material.transparent=false;mesh.material.depthWrite=true;mesh.castShadow=true;}
++  super.applyState(state);if(!this.finish)return;
++  const amount=this.mode==='explore'?this.envelopeAmount:0;
++  if(this.finish.setAmount(amount))this.renderer.shadowMap.needsUpdate=true;
++  if(this.mode==='explore'){
++   this.house.roofGroup.visible=amount>.0001;this.house.roofGroup.position.y=(1-amount)*1.6;
++   for(const mesh of this.house.roof){const m=mesh.material,blend=amount<.9999;if(m.transparent!==blend){m.transparent=blend;m.needsUpdate=true;}m.opacity=amount;m.depthWrite=!blend;mesh.castShadow=amount>.98;}
+@@ -33 +47 @@
+- snapshot(){return {...super.snapshot(),architecture:this.finish?.snapshot()??null};}
++ snapshot(){return {...super.snapshot(),roomId:this.roomId,envelopeTarget:this.envelopeTo,architecture:this.finish?.snapshot()??null};}
+diff --git a/tests/envelope-transition.test.js b/tests/envelope-transition.test.js
+new file mode 100644
+--- /dev/null
++++ b/tests/envelope-transition.test.js
+@@ -0,0 +1,25 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import * as state from '../src/architecture-state.js';
++test('envelope fade uses elapsed time, is bounded, and completes despite dropped frames',()=>{
++ assert.equal(typeof state.envelopeAt,'function');
++ assert.equal(state.envelopeAt(1,0,0),1);
++ assert.equal(state.envelopeAt(1,0,1200),0);
++ assert.equal(state.envelopeAt(1,0,600),.5);
++ assert.equal(state.envelopeAt(0,1,99999),1);
++ assert.equal(state.envelopeAt(0,1,-10),0);
++});
++test('an interrupted reveal continues from the current amount without a pop',()=>{
++ assert.equal(typeof state.envelopeAt,'function');
++ const mid=state.envelopeAt(1,0,300);
++ assert.equal(state.envelopeAt(mid,1,0),mid);
++ assert.ok(state.envelopeAt(mid,1,400)>mid);
++});
++test('reduced motion completes immediately and room/floor changes never leave opaque walls',()=>{
++ assert.equal(typeof state.envelopeAt,'function');
++ assert.equal(state.envelopeAt(1,0,0,true),0);
++ assert.equal(state.resolveEnvelope({mode:'explore',room:'outside',floor:'all',override:false}).closed,false);
++ assert.equal(state.resolveEnvelope({mode:'explore',room:'all',floor:'all',override:true}).closed,true);
++ assert.equal(state.resolveEnvelope({mode:'story',room:'outside',override:true}).closed,false);
++ assert.equal(state.resolveEnvelope({mode:'explore',room:'bedroom',floor:'2',override:true}).closed,false);
++});
