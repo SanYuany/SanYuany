@@ -1,0 +1,78 @@
+name: Coming Home unobstructed entrance
+on:
+  push:
+    branches: [switchbot-coming-home-study]
+    paths: ['.github/workflows/coming-home-clear-path.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  refine:
+    strategy:
+      fail-fast: false
+      matrix: {view: [desktop, mobile]}
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Wait for the already rendered camera film
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VIEW: ${{ matrix.view }}
+        run: |
+          for i in $(seq 1 45); do
+            if gh api repos/SanYuany/SanYuany/actions/runs/35094679580/artifacts --jq '.artifacts[].name' | grep -qx "coming-home-reviewed-$VIEW"; then exit 0; fi
+            sleep 10
+          done
+          exit 1
+      - uses: actions/download-artifact@v4
+        with:
+          name: coming-home-reviewed-${{ matrix.view }}
+          run-id: 35094679580
+          github-token: ${{ github.token }}
+          path: scene
+      - name: Apply only the reviewed resident-path correction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scene/director.js');s=p.read_text();assert 'walkIn:ramp(t,12.5,16.0)' in s;p.write_text(s.replace('walkIn:ramp(t,12.5,16.0)','walkIn:ramp(t,12.5,15.3)'))
+          p=Path('scene/stage.js');s=p.read_text();assert '-s.walkIn*3.12' in s and 'r.position.x-=s.walkIn*.80' in s
+          s=s.replace('-s.walkIn*3.12','-s.walkIn*4.50').replace('r.position.x-=s.walkIn*.80','r.position.x+=s.walkIn*.65')
+          p.write_text(s)
+          PY
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Replace only the affected 3D frames and verify the exact film
+        env:
+          VIEW: ${{ matrix.view }}
+        run: |
+          mkdir -p scene/evidence/${VIEW}/frames
+          ffmpeg -y -loglevel error -i scene/media/coming-home-${VIEW}.mp4 -q:v 2 -start_number 0 scene/evidence/${VIEW}/frames/%04d.jpg
+          python3 -m http.server 4188 --directory scene >/tmp/home-http.log 2>&1 &
+          sleep 2
+          cat > patch-film.mjs <<'JS'
+          import {chromium} from 'playwright';import fs from 'node:fs';import assert from 'node:assert/strict';
+          const view=process.env.VIEW,dir='scene/evidence/'+view,mobile=view==='mobile';
+          const b=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
+          const p=await b.newPage({viewport:mobile?{width:450,height:900}:{width:960,height:600},deviceScaleFactor:1});const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:4188/render.html');await p.waitForFunction(()=>window.stage?.canvas.dataset.ready==='true',null,{timeout:60000});
+          const c=await p.context().newCDPSession(p);const render=async(t,name,type='png')=>{const state=await p.evaluate(t=>seek(t),t);const r=await c.send('Page.captureScreenshot',{format:type,...(type==='jpeg'?{quality:88}:{})});fs.writeFileSync(dir+'/'+name,Buffer.from(r.data,'base64'));return state;};
+          const states=[];for(const [i,t] of [0,3.8,7.8,10.7,12.5,14.5,17.8,20,23.7].entries())states.push(await render(t,i+'-'+t+'.png'));
+          await p.evaluate(()=>seek(14.5));const headDistance=await p.evaluate(()=>{const r=stage.resident.position,k=stage.camera.position;return Math.hypot(r.x-k.x,r.y+1.54-k.y,r.z-k.z)});assert.ok(headDistance>2,'resident must not be a face-sized foreground obstruction');
+          await p.evaluate(()=>seek(11.3));assert.ok(await p.evaluate(()=>stage.lastGripError<.001),'hand must still reach the real handle');
+          for(let i=200;i<=306;i++){await render(24*i/383,'frames/'+String(i).padStart(4,'0')+'.jpg','jpeg');if(i%20===0)console.log(view,'patched',i);}
+          fs.writeFileSync(dir+'/path-correction.json',JSON.stringify({view,patchedFrames:[200,306],headDistanceAt14_5:headDistance,handContact:true,errors,states,method:'Only frames affected by revised resident trajectory are re-rendered; all camera paths and remaining source frames are preserved.'},null,2));await b.close();assert.equal(errors.length,0);
+          JS
+          node patch-film.mjs
+          ffmpeg -y -loglevel error -framerate 16 -i scene/evidence/${VIEW}/frames/%04d.jpg -c:v libx264 -preset fast -crf 19 -pix_fmt yuv420p -g 6 -movflags +faststart scene/media/coming-home-${VIEW}-clear.mp4
+          mv scene/media/coming-home-${VIEW}-clear.mp4 scene/media/coming-home-${VIEW}.mp4
+          ffmpeg -v error -i scene/media/coming-home-${VIEW}.mp4 -f null -
+          ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=width,height,nb_read_frames -show_entries format=duration -of json scene/media/coming-home-${VIEW}.mp4 > scene/evidence/${VIEW}/ffprobe-final.json
+          rm -rf scene/evidence/${VIEW}/frames
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coming-home-final-${{ matrix.view }}
+          path: scene/
+          retention-days: 14
