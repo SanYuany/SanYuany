@@ -1,0 +1,184 @@
+name: Finish V5 films and verified Netlify delivery
+on:
+  push:
+    branches: [switchbot-living-world-v5]
+    paths: ['.github/workflows/switchbot-v5-finish.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: switchbot-v5-finish
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          name: switchbot-v5-delivery
+          run-id: 35065908896
+          github-token: ${{ github.token }}
+          path: recovered
+      - name: Restore actual rendered source, not the obsolete main branch
+        run: |
+          tar -xzf recovered/SwitchBot-Living-World-V5.tar.gz
+          rm -rf switchbot-living-world-v5/evidence switchbot-living-world-v5/dist switchbot-living-world-v5/portable
+          node ops/v5-finish-source.mjs
+      - name: Test and preserve modular source on the isolated V5 branch
+        working-directory: switchbot-living-world-v5
+        run: |
+          set -o pipefail
+          npm test
+          npm run check
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          if ! git diff --cached --quiet; then git commit -m 'fix: preserve tested V5.0.1 modular source and reliable film pipeline'; git push origin HEAD:switchbot-living-world-v5; fi
+          RELEASE_SHA=$(git rev-parse HEAD) npm run build
+          npm run portable
+      - name: Archive deployable source with identity
+        run: tar --exclude=node_modules -czf /tmp/SwitchBot-V5.0.1-source.tar.gz switchbot-living-world-v5
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v5.0.1-source
+          path: /tmp/SwitchBot-V5.0.1-source.tar.gz
+          retention-days: 30
+  films:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        layout: [desktop, mobile]
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          name: v5.0.1-source
+          path: received
+      - name: Restore source and verify encoder before rendering any frames
+        run: |
+          tar -xzf received/SwitchBot-V5.0.1-source.tar.gz
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg >/dev/null
+          ffmpeg -hide_banner -encoders 2>/dev/null | grep libx264
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Render continuous actual 3D and encode MP4
+        working-directory: switchbot-living-world-v5
+        env:
+          LAYOUT: ${{ matrix.layout }}
+          BASE_URL: http://127.0.0.1:4195
+        run: |
+          python3 -m http.server 4195 --directory dist >/tmp/film-http.log 2>&1 &
+          sleep 2
+          npm run film
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v5.0.1-film-${{ matrix.layout }}
+          path: switchbot-living-world-v5/evidence/films/
+          retention-days: 30
+          if-no-files-found: error
+  release:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          name: v5.0.1-source
+          path: received
+      - name: Restore built source and browser
+        run: |
+          mkdir -p work
+          tar -xzf received/SwitchBot-V5.0.1-source.tar.gz -C work
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Verify deployment build through real HTTP before publication
+        working-directory: work/switchbot-living-world-v5
+        env:
+          BASE_URL: http://127.0.0.1:4195
+          EVIDENCE_DIR: predeploy-evidence
+        run: |
+          python3 -m http.server 4195 --directory dist >/tmp/release-http.log 2>&1 &
+          sleep 2
+          node tests/online-check.mjs
+      - name: Generate one-run public key after tests; private key never leaves runner
+        run: |
+          mkdir -p /tmp/v5-key
+          node --input-type=module <<'JS'
+          import {generateKeyPairSync} from 'node:crypto';import fs from 'node:fs';
+          const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:3072});
+          fs.writeFileSync('/tmp/v5-key/private.pem',privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
+          const release=JSON.parse(fs.readFileSync('work/switchbot-living-world-v5/dist/release.json'));
+          fs.writeFileSync('/tmp/v5-key/public.json',JSON.stringify({runId:process.env.GITHUB_RUN_ID,siteId:'31ad7518-78b8-4219-8463-839dde228c31',sourceSha:release.sourceSha,publicKey:publicKey.export({type:'spki',format:'pem'})}));
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v5-deploy-public-key
+          path: /tmp/v5-key/public.json
+          retention-days: 1
+      - name: Receive sealed one-run authorization and publish only the existing site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'JS'
+          import {privateDecrypt,constants,createDecipheriv} from 'node:crypto';import fs from 'node:fs';import {spawn} from 'node:child_process';
+          const info=JSON.parse(fs.readFileSync('/tmp/v5-key/public.json'));
+          let payload;
+          const endpoint=`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/contents/ops/v5-run-envelope.json?ref=switchbot-living-world-v5`;
+          for(let i=0;i<75;i++){
+            const r=await fetch(endpoint,{headers:{Authorization:`Bearer ${process.env.GH_TOKEN}`,Accept:'application/vnd.github+json'}});
+            if(r.ok){const f=await r.json();const e=JSON.parse(Buffer.from(f.content,'base64').toString());if(e.runId===info.runId){const key=privateDecrypt({key:fs.readFileSync('/tmp/v5-key/private.pem'),padding:constants.RSA_PKCS1_OAEP_PADDING,oaepHash:'sha256'},Buffer.from(e.key,'base64'));const d=createDecipheriv('aes-256-gcm',key,Buffer.from(e.iv,'base64'));d.setAuthTag(Buffer.from(e.tag,'base64'));payload=JSON.parse(Buffer.concat([d.update(Buffer.from(e.data,'base64')),d.final()]).toString());break;}}
+            await new Promise(r=>setTimeout(r,8000));
+          }
+          if(!payload)throw new Error('No matching encrypted authorization; nothing published');
+          if(payload.siteId!==info.siteId||payload.sourceSha!==info.sourceSha||!/^https:\/\/netlify-mcp\.netlify\.app\/proxy\//.test(payload.proxy)||Date.now()-payload.issuedAt>600000)throw new Error('Invalid or expired deployment instruction');
+          fs.unlinkSync('/tmp/v5-key/private.pem');
+          console.log('::add-mask::'+payload.proxy);console.log('::add-mask::'+payload.proxy.split('/').pop());
+          const project='work/switchbot-living-world-v5';
+          const child=spawn('npx',['-y','@netlify/mcp@latest','--site-id',payload.siteId,'--proxy-path',payload.proxy],{cwd:project,stdio:['ignore','pipe','pipe'],env:process.env});let log='';
+          child.stdout.on('data',c=>log+=c.toString());child.stderr.on('data',c=>log+=c.toString());
+          const timer=setTimeout(()=>child.kill('SIGTERM'),600000);
+          const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',resolve);});clearTimeout(timer);
+          log=log.replaceAll(payload.proxy,'[REDACTED_PROXY]').replaceAll(payload.proxy.split('/').pop(),'[REDACTED_TOKEN]');
+          fs.mkdirSync(project+'/public-evidence',{recursive:true});fs.writeFileSync(project+'/public-evidence/deployment.txt',log);process.stdout.write(log);
+          if(code!==0)process.exit(code||1);
+          JS
+      - name: Verify actual production response, renderer, mobile and export
+        working-directory: work/switchbot-living-world-v5
+        env:
+          BASE_URL: https://switchbot-living-world.netlify.app
+          EVIDENCE_DIR: public-evidence
+        run: node tests/online-check.mjs
+      - name: Remove temporary private authorization material
+        if: always()
+        run: rm -rf /tmp/v5-key
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v5.0.1-production-evidence
+          path: |
+            work/switchbot-living-world-v5/predeploy-evidence/
+            work/switchbot-living-world-v5/public-evidence/
+          retention-days: 30
+          if-no-files-found: warn
