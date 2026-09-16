@@ -1,0 +1,55 @@
+name: Coming Home R3 visual proof review
+on:
+  push:
+    branches: [switchbot-coming-home-study]
+    paths: ['.github/workflows/coming-home-r3-review.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 35096243335
+          name: coming-home-final-desktop
+          path: r3-stage
+      - name: Apply tested R3 source without changing the baseline
+        run: |
+          python3 coming-home-study/r3/apply.py
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Render actual desktop and portrait geometry
+        run: |
+          python3 -m http.server 4188 --directory r3-stage >/tmp/r3-server.log 2>&1 &
+          sleep 2
+          node --input-type=module <<'JS'
+          import {chromium} from 'playwright';import fs from 'node:fs';
+          const b=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']});
+          const report={method:'Real source WebGL rendering on isolated CI; not consumer-device performance',views:[],errors:[]};
+          try{for(const view of ['desktop','mobile']){
+            const p=await b.newPage({viewport:view==='desktop'?{width:960,height:600}:{width:450,height:900},deviceScaleFactor:1});p.on('pageerror',e=>report.errors.push(e.message));
+            await p.goto('http://127.0.0.1:4188/render.html');await p.waitForFunction(()=>window.stage?.canvas.dataset.ready==='true',null,{timeout:90000});
+            const states=[];for(const t of [0,3.8,6.4,6.9,7.3,8.2,10.7,12.2,14.2,17.4,23]){states.push(await p.evaluate(t=>window.seek(t),t));await p.screenshot({path:`r3-stage/evidence/r3/${view}-${t}.png`});console.log(view,t,JSON.stringify(states.at(-1).proof));}
+            report.views.push({view,states});await p.close();
+          }}finally{fs.writeFileSync('r3-stage/evidence/r3/renderer-report.json',JSON.stringify(report,null,2));await b.close();}
+          if(report.errors.length)throw new Error(report.errors.join('\n'));
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coming-home-r3-review
+          path: |
+            r3-stage/evidence/r3/
+            r3-stage/stage.js
+            r3-stage/director.js
+            r3-stage/src/coming-home/
+          retention-days: 14
