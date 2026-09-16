@@ -14,3 +14,10 @@ Approved scope: SwitchBot only; Japanese detached two-floor home; A3 realistic r
 - Glazing, gable, balcony access, terrace, rainpipes, baseboards and fine instanced foliage.
 - Existing product claims, room journey, planner and download behavior preserved.
 - Architectural illustration, not construction documents or product CAD.
+
+## 5.1 architectural refinement
+- Original procedural surface maps for wood, linen, plaster and stone.
+- Same-house finished exterior under Explore > Exterior; no wall obstruction in story/room views.
+- Glazing, gable, balcony access, terrace, rainpipes, baseboards and fine instanced foliage.
+- Existing product claims, room journey, planner and download behavior preserved.
+- Architectural illustration, not construction documents or product CAD.
