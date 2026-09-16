@@ -1,9 +1,11 @@
 import * as T from 'three';
-import {seededRandom} from './architecture-state.js';
+import {seededRandom,gableProfile,gardenLeafScale} from './architecture-state.js';
 
 /** Original, locally generated surface maps and architectural envelope. No external image requests. */
 export function finishArchitecture(house) {
  const textures=[],materials=[],geometry=[];
+ // Keep the full pitched roof clear of the lintels and structural beam.
+ for(const mesh of house.roofGroup.children)mesh.position.y+=.20;
  const rng=seededRandom(1701);
  function microSurface(kind){
   const c=document.createElement('canvas');c.width=c.height=256;
@@ -65,8 +67,9 @@ export function finishArchitecture(house) {
  box('Upper sill band',9.65,.52,.17,0,3.62,3.58,wall,upper);box('Upper lintel band',9.65,.38,.17,0,5.99,3.58,wall,upper);
  frontWindow(-2.70,4.83,3.47,1.88,upper);frontWindow(2.05,4.83,4.38,1.88,upper);
  // A thin gable completes the roof silhouette when viewed outside.
- const gableShape=new T.Shape();gableShape.moveTo(-4.86,6.18);gableShape.lineTo(0,7.25);gableShape.lineTo(4.86,6.18);gableShape.closePath();
+ const gableShape=new T.Shape();gableProfile().forEach(([x,y],i)=>i?gableShape.lineTo(x,y):gableShape.moveTo(x,y));gableShape.closePath();
  const gg=new T.ShapeGeometry(gableShape);geometry.push(gg);const gable=new T.Mesh(gg,wall);gable.position.z=3.58;gable.name='South gable';gable.castShadow=true;upper.add(gable);
+ const northGable=gable.clone();northGable.name='North gable';northGable.position.z=-3.58;northGable.rotation.y=Math.PI;upper.add(northGable);
  // East elevation and a real opening onto the balcony.
  const side=new T.Group();side.rotation.y=-Math.PI/2;side.position.set(4.90,0,0);lower.add(side);
  box('East lower facade',.17,2.83,5.62,4.89,1.66,.7,wall,lower);
@@ -89,16 +92,30 @@ export function finishArchitecture(house) {
  box('Living terrace footing',3.68,.14,1.36,-2.92,.02,4.16,house.materials.stone,house.root);
  for(let i=0;i<17;i++)box('Terrace board',.209,.065,1.32,-4.69+i*.218,.13,4.16,timber,house.root);
  box('Terrace step',3.68,.08,.39,-2.92,-.06,5.02,timber,house.root);
- // Fine lancet leaves replace chunky, uniformly thick foliage while reusing instanced branches.
- const leafShape=new T.Shape();leafShape.moveTo(0,-1);leafShape.quadraticCurveTo(.54,-.20,0,1);leafShape.quadraticCurveTo(-.54,-.20,0,-1);
- const leafGeo=new T.ShapeGeometry(leafShape,3);leafGeo.computeVertexNormals();geometry.push(leafGeo);
- const leafMat=new T.MeshStandardMaterial({color:'#849173',roughness:.95,side:T.DoubleSide});materials.push(leafMat);
- house.root.traverse(node=>{if(node.isInstancedMesh&&node.name==='Japanese garden foliage'){
-  node.geometry=leafGeo;node.material=leafMat;
-  const matrix=new T.Matrix4(),position=new T.Vector3(),rotation=new T.Quaternion(),scale=new T.Vector3();
-  for(let i=0;i<node.count;i++){node.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);scale.set(scale.x*.9,scale.x*1.35,1);matrix.compose(position,rotation,scale);node.setMatrixAt(i,matrix);}
-  node.instanceMatrix.needsUpdate=true;node.computeBoundingSphere();
- }});
+ // Small folded leaves, distributed with deterministic variation. Instance draws stay batched.
+ const leafGeo=new T.BufferGeometry();
+ leafGeo.setAttribute('position',new T.Float32BufferAttribute([0,-1,0,.34,-.25,-.08,.32,.38,-.08,0,1,0,-.32,.38,-.08,-.34,-.25,-.08,0,0,.14],3));
+ leafGeo.setIndex([6,0,1,6,1,2,6,2,3,6,3,4,6,4,5,6,5,0]);leafGeo.computeVertexNormals();geometry.push(leafGeo);
+ const leafMat=new T.MeshStandardMaterial({color:'#ffffff',roughness:.94,side:T.DoubleSide});materials.push(leafMat);
+ const originalCanopies=[];house.root.traverse(node=>{if(node.isInstancedMesh&&node.name==='Japanese garden foliage')originalCanopies.push(node);});
+ house.root.updateMatrixWorld(true);
+ for(const old of originalCanopies){
+  const canopy=new T.InstancedMesh(leafGeo,leafMat,old.count*6);canopy.name='Japanese garden foliage';
+  canopy.position.copy(old.position);canopy.quaternion.copy(old.quaternion);canopy.scale.copy(old.scale);
+  canopy.castShadow=true;canopy.receiveShadow=true;
+  const parentScale=new T.Vector3();old.getWorldScale(parentScale);const largest=Math.max(parentScale.x,parentScale.y,parentScale.z);
+  const matrix=new T.Matrix4(),position=new T.Vector3(),rotation=new T.Quaternion(),scale=new T.Vector3(),obj=new T.Object3D();
+  for(let i=0;i<old.count;i++){
+   old.getMatrixAt(i,matrix);matrix.decompose(position,rotation,scale);
+   for(let j=0;j<6;j++){
+    obj.position.copy(position).add(new T.Vector3((rng()-.5)*.40,(rng()-.5)*.28,(rng()-.5)*.40));
+    obj.rotation.set(-.5+rng()*1.9,rng()*Math.PI*2,rng()*Math.PI*2);
+    obj.scale.set(...gardenLeafScale(largest,rng()));obj.updateMatrix();const k=i*6+j;
+    canopy.setMatrixAt(k,obj.matrix);canopy.setColorAt(k,new T.Color().setHSL(.215+rng()*.05,.22+rng()*.14,.32+rng()*.18));
+   }
+  }
+  canopy.instanceMatrix.needsUpdate=true;canopy.computeBoundingSphere();old.parent.add(canopy);old.removeFromParent();
+ }
  // Facade materials are isolated so revealing rooms never dims their furniture.
  const facadeMaterials=[];
  for(const group of [lower,upper])group.traverse(mesh=>{if(!mesh.isMesh)return;const original=mesh.material;mesh.material=original.clone();materials.push(mesh.material);facadeMaterials.push({mesh,material:mesh.material,opacity:original.opacity,transparent:original.transparent,depthWrite:original.depthWrite,shadow:mesh.castShadow});});

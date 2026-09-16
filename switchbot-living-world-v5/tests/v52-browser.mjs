@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';
 const root=path.resolve('switchbot-living-world-v5'),out=path.join(root,'evidence/v52');fs.mkdirSync(out,{recursive:true});
-const report={version:'5.2.0',checkedAt:new Date().toISOString(),checks:[],errors:[],screenshots:[]};
+const report={version:'5.2.1',checkedAt:new Date().toISOString(),checks:[],errors:[],screenshots:[]};
 const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-dev-shm-usage']});
 const page=await browser.newPage({viewport:{width:1280,height:800},deviceScaleFactor:1,acceptDownloads:true});page.setDefaultTimeout(45000);page.on('pageerror',e=>report.errors.push(e.message));
 const ok=(name,value)=>{assert.ok(value,name);report.checks.push({name,status:'PASS'});console.log('PASS',name);};

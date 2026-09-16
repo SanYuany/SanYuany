@@ -27,3 +27,16 @@ export function exteriorOrbitFrame(elapsed=0,mobile=false){
 
 /** OrbitControls must not clamp the independently framed portrait exterior. */
 export function exteriorMaxDistance(mobile=false){return mobile?90:65;}
+
+/** Gable polygon in house coordinates. Derived from the raised roof underside. */
+export function gableProfile(){
+ const under=x=>6.81-Math.tan(.22)*(Math.abs(x)-2.52)-.07/Math.cos(.22)-.012;
+ return [[-4.86,6.12],[-4.86,under(-4.86)],[0,under(0)],[4.86,under(4.86)],[4.86,6.12]];
+}
+/** Small folded leaves: parent world scaling cannot enlarge a leaf beyond 14 cm. */
+export function gardenLeafScale(parentScale=1,sample=.5){
+ const parent=Number.isFinite(parentScale)&&parentScale>0?parentScale:1;
+ const t=Math.max(0,Math.min(1,Number.isFinite(sample)?sample:.5));
+ const length=(.048+.020*t)/parent;
+ return [length*.60,length,length];
+}
