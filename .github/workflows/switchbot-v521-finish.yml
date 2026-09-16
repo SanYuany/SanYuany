@@ -1,0 +1,162 @@
+name: Verify and deliver SwitchBot V5.2.1
+on:
+  push:
+    branches: [switchbot-living-world-v52-release]
+    paths: ['.github/workflows/switchbot-v521-finish.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: switchbot-v521-delivery
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply the small reviewed geometry patch to the preserved source
+        run: |
+          if ! grep -q '"version": "5.2.1"' switchbot-living-world-v5/package.json; then
+            patch --batch --forward -p1 -d switchbot-living-world-v5 < delivery/v521-detail-polish.patch
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('switchbot-living-world-v5/tests/v52-browser.mjs')
+          p.write_text(p.read_text().replace("version:'5.2.0'", "version:'5.2.1'"))
+          p=Path('switchbot-living-world-v5/scripts/v52-film.mjs')
+          s=p.read_text().replace("version:'5.2.0'", "version:'5.2.1'").replace('V5.2-', 'V5.2.1-').replace('const count=160;', 'const count=256;').replace("'-framerate','10'", "'-framerate','16'").replace('playbackFPS:10','playbackFPS:16')
+          p.write_text(s)
+          PY
+      - name: Unit checks and self-contained distribution
+        working-directory: switchbot-living-world-v5
+        run: |
+          set -o pipefail
+          mkdir -p evidence/current
+          npm test | tee evidence/current/unit-tests.txt
+          npm run check
+          npm run build
+          npm run portable
+      - name: Preserve modular source on the existing release branch
+        run: |
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add switchbot-living-world-v5/package.json switchbot-living-world-v5/src switchbot-living-world-v5/tests switchbot-living-world-v5/scripts switchbot-living-world-v5/portable
+          if ! git diff --cached --quiet; then git commit -m 'fix: preserve V5.2.1 roof and foliage refinement'; git push origin HEAD:switchbot-living-world-v52-release; fi
+          git rev-parse HEAD > switchbot-living-world-v5/SOURCE_COMMIT.txt
+          tar --exclude=node_modules --exclude=.git -czf /tmp/SwitchBot-V5.2.1-Source.tar.gz switchbot-living-world-v5
+      - uses: actions/upload-artifact@v4
+        with:
+          name: switchbot-v521-source
+          path: /tmp/SwitchBot-V5.2.1-Source.tar.gz
+          retention-days: 30
+  browser:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          name: switchbot-v521-source
+      - run: |
+          tar -xzf SwitchBot-V5.2.1-Source.tar.gz
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Verify the actual HTTP build, exports, offline file and both viewports
+        env:
+          BASE_URL: http://127.0.0.1:4198/
+        run: |
+          python3 -m http.server 4198 --directory switchbot-living-world-v5/dist > /tmp/v521-browser.log 2>&1 &
+          sleep 2
+          node switchbot-living-world-v5/tests/v52-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-v521-browser
+          path: switchbot-living-world-v5/evidence/v52/
+          retention-days: 30
+  films:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        view: [desktop, mobile]
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          name: switchbot-v521-source
+      - name: Verify video encoding tools before rendering
+        run: |
+          tar -xzf SwitchBot-V5.2.1-Source.tar.gz
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg > /tmp/v521-ffmpeg-install.log
+          ffmpeg -version
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Render the actual sequential 3D cameras and encode matching MP4
+        env:
+          FILM_VIEW: ${{ matrix.view }}
+        run: |
+          python3 -m http.server 4198 --directory switchbot-living-world-v5/dist > /tmp/v521-film.log 2>&1 &
+          sleep 2
+          node switchbot-living-world-v5/scripts/v52-film.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-v521-film-${{ matrix.view }}
+          path: |
+            switchbot-living-world-v5/evidence/v52/films/*.mp4
+            switchbot-living-world-v5/evidence/v52/films/*-manifest.json
+          retention-days: 30
+  deploy:
+    needs: browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v5
+        with:
+          name: switchbot-v521-source
+      - name: Use only standard repository authorization for the existing site
+        id: auth
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        run: |
+          mkdir -p deployment-evidence
+          if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
+            printf '%s\n' '{"status":"NOT_DEPLOYED","reason":"NETLIFY_AUTH_TOKEN repository secret is not configured. No temporary proxy credentials transferred.","siteId":"31ad7518-78b8-4219-8463-839dde228c31"}' > deployment-evidence/status.json
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy the tested build
+        if: steps.auth.outputs.ready == 'true'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: 31ad7518-78b8-4219-8463-839dde228c31
+        run: |
+          tar -xzf SwitchBot-V5.2.1-Source.tar.gz
+          npx -y netlify-cli deploy --prod --dir=switchbot-living-world-v5/dist --site="$NETLIFY_SITE_ID" --json > deployment-evidence/deploy.json
+          curl -fsS https://switchbot-living-world.netlify.app/release.json > deployment-evidence/public-release.json
+          node -e "const f=require('./deployment-evidence/public-release.json');if(f.version!=='5.2.1')process.exit(1)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: switchbot-v521-deployment-status
+          path: deployment-evidence/
+          retention-days: 30
