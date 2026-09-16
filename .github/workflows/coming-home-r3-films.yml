@@ -2,7 +2,7 @@ name: Coming Home R3 proof films
 on:
   push:
     branches: [switchbot-coming-home-study]
-    paths: ['.github/workflows/coming-home-r3-films.yml']
+    paths: ['.github/workflows/coming-home-r3-films.yml', 'coming-home-study/r3/film.mjs']
   workflow_dispatch:
 permissions:
   contents: read
