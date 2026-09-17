@@ -1,0 +1,89 @@
+name: Coming Home R4 look development
+on:
+  push:
+    branches: [switchbot-coming-home-study]
+    paths: ['.github/workflows/coming-home-r4-render.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  render:
+    strategy:
+      fail-fast: false
+      matrix:
+        view: [desktop, mobile]
+        half: [0, 1]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 35096243335
+          name: coming-home-final-desktop
+          path: r3-stage
+      - name: Restore the same canonical scene and apply R4 original visual refinements
+        run: |
+          python3 coming-home-study/r3/apply.py
+          python3 coming-home-study/r3/refine.py
+          cp coming-home-study/r4/lifestyle-finish.js r3-stage/src/coming-home/lifestyle-finish.js
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('r3-stage/stage.js');s=p.read_text().replace("import {installProofStage} from './src/coming-home/proof-stage.js';","import {installProofStage} from './src/coming-home/proof-stage.js';\nimport {installLifestyleFinish} from './src/coming-home/lifestyle-finish.js';").replace('installProofStage(this);','installProofStage(this);installLifestyleFinish(this);');p.write_text(s)
+          p=Path('r3-stage/src/coming-home/director.js');s=p.read_text();assert 'door:ramp(t,10,12.8)*(1-ramp(t,16.5,18.5))' in s;p.write_text(s.replace('door:ramp(t,10,12.8)*(1-ramp(t,16.5,18.5))','door:ramp(t,10,12.8)'))
+          p=Path('r3-stage/src/coming-home/proof-motion.js');p.write_text(p.read_text().replace('-2.05*turn','-4.63*turn').replace('-.9*turn','+.85*turn'))
+          PY
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg >/tmp/r4-ffmpeg.log
+          ffmpeg -version | head -1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Render early proof frames and verify topology and contact
+        env:
+          VIEW: ${{ matrix.view }}
+          HALF: ${{ matrix.half }}
+        run: |
+          python3 -m http.server 4188 --directory r3-stage >/tmp/r4-http.log 2>&1 &
+          sleep 2
+          cat > /tmp/r4-note <<'TXT'
+          This is original procedural 3D look-development, not photographic or approved product CAD. No credentials, live inventory or production deploy.
+          TXT
+          cat > r4-render.mjs <<'JS'
+          import {chromium} from 'playwright';import fs from 'node:fs';import assert from 'node:assert/strict';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';
+          const view=process.env.VIEW,half=Number(process.env.HALF),out=`r4-out/${view}-${half}`;fs.mkdirSync(out+'/frames',{recursive:true});const errors=[];const browser=await chromium.launch({headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+          const page=await browser.newPage({viewport:view==='mobile'?{width:450,height:900}:{width:960,height:600},deviceScaleFactor:1});page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4188/render.html');await page.waitForFunction(()=>window.stage?.canvas.dataset.ready==='true',null,{timeout:90000});
+          const read=async(t,type='image/jpeg')=>page.evaluate(({t,type})=>{const state=window.seek(t);return {state,image:stage.canvas.toDataURL(type,.94)}},{t,type});
+          const keyframes=[];for(const t of [0,3.8,6.4,8.2,10.7,12.2,14.2,17.4,19.8,23]){const f=await read(t,'image/png');keyframes.push(f.state);fs.writeFileSync(`${out}/${t}.png`,Buffer.from(f.image.split(',')[1],'base64'));}
+          const look=await page.evaluate(()=>stage.lookDevelopment);assert.equal(look.edition,'R4');assert.ok(keyframes.every(f=>f.triangles>10000));assert.ok(keyframes.filter(f=>f.time>=13).every(f=>Math.abs(f.proof.doorAngle)>1.2),'Unexplained self-closing door');assert.deepEqual(errors,[]);fs.writeFileSync(out+'/keyframes.json',JSON.stringify({view,half,keyframes,look,errors},null,2));
+          if(process.env.PREVIEW==='1'){await browser.close();process.exit(0);}
+          const states=[];try{for(let i=half*288;i<(half+1)*288;i++){const f=await read(24*i/575);states.push(f.state);if(f.state.proof.contact>.999)assert.ok(f.state.proof.handError<.001);if(f.state.time>=6.85&&f.state.time<9.3)assert.equal(Math.abs(f.state.proof.doorAngle),0);fs.writeFileSync(`${out}/frames/${String(i-half*288).padStart(4,'0')}.jpg`,Buffer.from(f.image.split(',')[1],'base64'));if(i%64===0)console.log(view,half,i,'/576');}}finally{await browser.close();}
+          assert.deepEqual(errors,[]);const film=out+'/chunk.mp4';const ff=args=>{const p=spawnSync('ffmpeg',args,{stdio:'inherit'});assert.equal(p.status,0);};ff(['-v','error','-y','-framerate','24','-i',out+'/frames/%04d.jpg','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-g','6','-movflags','+faststart',film]);ff(['-v','error','-i',film,'-f','null','-']);
+          const paths=['stage.js','director.js','src/coming-home/director.js','src/coming-home/proof-motion.js','src/coming-home/proof-stage.js','src/coming-home/lifestyle-finish.js'];const sourceHashes=Object.fromEntries(paths.map(p=>[p,createHash('sha256').update(fs.readFileSync('r3-stage/'+p)).digest('hex')]));fs.writeFileSync(out+'/report.json',JSON.stringify({view,half,fps:24,frames:288,duration:12,states,errors,sourceHashes,decode:'PASS'},null,2));fs.rmSync(out+'/frames',{recursive:true});
+          JS
+          PREVIEW=1 node r4-render.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r4-preview-${{ matrix.view }}-${{ matrix.half }}
+          path: r4-out/
+          retention-days: 14
+      - name: Render the corresponding continuous motion segment
+        env:
+          VIEW: ${{ matrix.view }}
+          HALF: ${{ matrix.half }}
+        run: node r4-render.mjs
+      - name: Preserve exact original render source
+        if: matrix.view == 'desktop' && matrix.half == 0
+        run: tar --exclude=evidence --exclude=node_modules -czf r4-out/R4-Render-Source.tar.gz -C r3-stage .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r4-film-${{ matrix.view }}-${{ matrix.half }}
+          path: r4-out/
+          retention-days: 14
