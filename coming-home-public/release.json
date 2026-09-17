@@ -1,0 +1,25 @@
+{
+  "version": "5.3.4",
+  "edition": "Coming Home R4.1",
+  "build": "consumer-publish-1",
+  "runtime": "native-video-no-webgl",
+  "publication": "SOURCE_PRESERVED_PENDING_HOST",
+  "sourceTextSha256": "6166e5005fbbda1c5d3ac237c7db60762ee3510753e726818aae33e12a34e2e0",
+  "mediaLicense": "Original assistant-generated CG only; no third-party photos or user-uploaded media. Conceptual product geometry.",
+  "files": {
+    "404.html": "d2861a04c044ca579649e8efba1465e01624ce5892b6695123a0b147d2bc8c28",
+    "_headers": "750a1f5457c19f9d3a949f4a49d3ea1477e69c52cc1af22b42c2a1c38aabe898",
+    "assets/app-ae09f0ee7168.js": "ae09f0ee7168ab5e48a638a19b565c23ef449b9260057d5259098f0a0a5c61c9",
+    "assets/style-c79dae894927.css": "c79dae8949272363e7609b7d8bbfaeb1396cb578fdeb09056ccc21ba8fd22168",
+    "index.html": "8ad937582a6787c169d4793c51ab2ceb342fda292211475764af2a1d01104beb",
+    "media/coming-home-desktop.mp4": "97e8821a8d5d56979ece1debfcc654535ab099d19f41774ad42860d604733333",
+    "media/coming-home-mobile.mp4": "ee6dd46d15384f111105fb4cc91d4cc7569f5b7c77cbb7b44108c3dd8c71c0dc",
+    "media/manifest.json": "de7c93c2d69b61851b645e112dd73f34dba3735ed132cf27d55eaf7eb8595da3",
+    "media/poster-desktop.jpg": "3aad101f62a59ade03a72684881830e5e57321e5ff6d9f5e31356566d99deef7",
+    "media/poster-mobile.jpg": "9b7ede5a3faae855542a0a60c341676c350e32b5a99f0455a51441ca0f133132",
+    "media/scene-hub.jpg": "d4a926efed1bca8294b0cd89e73d5c74d80ddc4e600373d5e3bcbd975e30b6c2",
+    "media/scene-keypad.jpg": "4aa9e04527895cfd36e8d2adbc28d16b03f854d98d8f25b57431eceeb033cdae",
+    "media/scene-lock.jpg": "5a0d1c547ed074768cf91150c270e662c24892373f22d56d0c538b8f1e327ea0",
+    "robots.txt": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+  }
+}
