@@ -1,0 +1,56 @@
+name: Preserve complete Coming Home consumer release
+on:
+  push:
+    branches: [switchbot-coming-home-study]
+    paths: ['.github/workflows/coming-home-publish-site.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  preserve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore public text and verify original media
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,hashlib,base64,zlib
+          parts=[Path(f'delivery/r41-consumer-text.part{i}').read_text().strip() for i in range(4)]
+          # Correct a diagnosed single-character text transfer typo before
+          # verifying the independently computed, immutable source checksum.
+          parts[1]=parts[1].replace('YzTxgyaR3','YzTxyaR3')
+          decoded=zlib.decompress(base64.b64decode(''.join(parts),validate=True))
+          assert hashlib.sha256(decoded).hexdigest()=='6166e5005fbbda1c5d3ac237c7db60762ee3510753e726818aae33e12a34e2e0','Public source transport checksum failed'
+          source=json.loads(decoded)
+          expected={'index.html','404.html','_headers','robots.txt','assets/app-ae09f0ee7168.js','assets/style-c79dae894927.css'}
+          assert set(source)==expected
+          root=Path('coming-home-public');root.mkdir(exist_ok=True)
+          for relative,content in source.items():
+            target=root/relative;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content)
+          media=json.loads((root/'media/manifest.json').read_text())
+          for relative,record in media['files'].items():
+            assert hashlib.sha256((root/'media'/relative).read_bytes()).hexdigest()==record['sha256'],relative
+          files={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(root.rglob('*')) if p.is_file() and p.name!='release.json'}
+          release={'version':'5.3.4','edition':'Coming Home R4.1','build':'consumer-publish-1','runtime':'native-video-no-webgl','publication':'SOURCE_PRESERVED_PENDING_HOST','sourceTextSha256':hashlib.sha256(decoded).hexdigest(),'mediaLicense':'Original assistant-generated CG only; no third-party photos or user-uploaded media. Conceptual product geometry.','files':files}
+          (root/'release.json').write_text(json.dumps(release,indent=2)+'\n')
+          print('Verified public text, original media and release manifest:',len(files),'files')
+          PY
+      - name: Preserve readable public release on its existing isolated branch
+        run: |
+          git config user.name 'SwitchBot Project Build'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add coming-home-public
+          if ! git diff --cached --quiet; then
+            git commit -m 'release: preserve exact R4.1 consumer site and verified original media'
+            git push origin HEAD:switchbot-coming-home-study
+          fi
+          git rev-parse HEAD > /tmp/coming-home-public-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coming-home-consumer-release-identity
+          path: |
+            /tmp/coming-home-public-commit.txt
+            coming-home-public/release.json
+          retention-days: 30
